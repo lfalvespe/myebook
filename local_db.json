@@ -1,0 +1,73 @@
+{
+  "books": [
+    {
+      "id": "1",
+      "title": "Dom Casmurro",
+      "author": "Machado de Assis",
+      "year": 1899,
+      "genre": "Romance / Realismo",
+      "cover_url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=600&q=80",
+      "file_url": "/uploads/mock-dom-casmurro.epub",
+      "created_at": "2026-05-28T12:57:18.071Z"
+    },
+    {
+      "id": "2",
+      "title": "O Cortiço",
+      "author": "Aluísio Azevedo",
+      "year": 1890,
+      "genre": "Naturalismo",
+      "cover_url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=600&q=80",
+      "file_url": "/uploads/mock-o-cortico.epub",
+      "created_at": "2026-05-28T12:57:18.071Z"
+    },
+    {
+      "id": "3",
+      "title": "Memórias Póstumas de Brás Cubas",
+      "author": "Machado de Assis",
+      "year": 1881,
+      "genre": "Romance / Realismo",
+      "cover_url": "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=600&q=80",
+      "file_url": "/uploads/mock-memorias-postumas.epub",
+      "created_at": "2026-05-28T12:57:18.071Z"
+    },
+    {
+      "id": "4",
+      "title": "Orgulho e Preconceito",
+      "author": "Jane Austen",
+      "year": 1813,
+      "genre": "Clássico",
+      "cover_url": "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=600&q=80",
+      "file_url": "/uploads/mock-orgulho-preconceito.epub",
+      "created_at": "2026-05-28T12:57:18.071Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "admin-id",
+      "email": "admin@livraria.com",
+      "role": "admin",
+      "status": "active",
+      "created_at": "2026-05-28T12:57:30.065Z"
+    },
+    {
+      "id": "user-id",
+      "email": "usuario@livraria.com",
+      "role": "user",
+      "status": "active",
+      "created_at": "2026-05-28T12:57:30.065Z"
+    },
+    {
+      "id": "lfalvespe-admin-id",
+      "email": "lfalvespe@gmail.com",
+      "role": "admin",
+      "status": "active",
+      "must_change_password": true,
+      "created_at": "2026-05-28T13:16:22.000Z"
+    }
+  ],
+  "passwords": {
+    "admin-id": "admin123",
+    "user-id": "user123",
+    "lfalvespe-admin-id": "12345678"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Livraria Supabase",
+  "description": "Uma biblioteca digital com galeria de livros organizada por gênero e autor, com suporte completo para download de arquivos EPUB, autenticação de usuários (Admin/User) e painel administrativo alimentado por Supabase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
