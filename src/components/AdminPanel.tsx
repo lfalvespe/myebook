@@ -5,9 +5,10 @@ import { Book, UserProfile } from "../types";
 interface AdminPanelProps {
   onBookAdded: () => void;
   books: Book[];
+  currentUser?: UserProfile | null;
 }
 
-export default function AdminPanel({ onBookAdded, books }: AdminPanelProps) {
+export default function AdminPanel({ onBookAdded, books, currentUser }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<"register" | "manage-books" | "users">("register");
   
   // Book register states
@@ -166,7 +167,10 @@ export default function AdminPanel({ onBookAdded, books }: AdminPanelProps) {
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${currentUser?.id || ""}`
+        },
         body: JSON.stringify({
           email: newUserEmail,
           password: newUserPassword,

@@ -114,11 +114,6 @@ export default function App() {
           setShowAdminPanel(!showAdminPanel);
           if (showDocs) setShowDocs(false);
         }}
-        showDocs={showDocs}
-        onToggleDocs={() => {
-          setShowDocs(!showDocs);
-          if (showAdminPanel) setShowAdminPanel(false);
-        }}
       />
 
       {/* Warning popup for downloads if visitor is not logged in */}
@@ -157,7 +152,7 @@ export default function App() {
         
         {/* Toggleable Admin Panel */}
         {showAdminPanel && user?.role === "admin" && (
-          <AdminPanel onBookAdded={loadBooks} books={books} />
+          <AdminPanel onBookAdded={loadBooks} books={books} currentUser={user} />
         )}
 
         {/* Toggleable Documentation / Comparison Panel */}
@@ -355,10 +350,8 @@ export default function App() {
       {/* Simple Footer */}
       <footer className="bg-white border-t border-gray-200 text-slate-500 py-8 text-center text-xs mt-12 shrink-0">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p>© 2026 Livraria Supabase. Todos os direitos reservados para fins de demonstração.</p>
+          <p>© 2026 Minha Estante. Todos os direitos reservados para fins de demonstração.</p>
           <div className="flex gap-4">
-            <span className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => setShowDocs(!showDocs)}>Análise Tiers Gratuitos</span>
-            <span>|</span>
             <span className="cursor-pointer hover:text-blue-600 transition-colors" onClick={user ? handleLogout : () => setIsAuthModalOpen(true)}>
               {user ? "Sair da Conta" : "Link Administrador"}
             </span>

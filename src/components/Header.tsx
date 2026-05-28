@@ -9,8 +9,6 @@ interface HeaderProps {
   onLogout: () => void;
   showAdminPanel: boolean;
   onToggleAdminPanel: () => void;
-  showDocs: boolean;
-  onToggleDocs: () => void;
 }
 
 export default function Header({
@@ -20,8 +18,6 @@ export default function Header({
   onLogout,
   showAdminPanel,
   onToggleAdminPanel,
-  showDocs,
-  onToggleDocs
 }: HeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 text-slate-900 relative z-10" id="app-header">
@@ -29,13 +25,13 @@ export default function Header({
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
           
           {/* Logo */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => { if(showAdminPanel) onToggleAdminPanel(); if(showDocs) onToggleDocs(); }}>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => { if(showAdminPanel) onToggleAdminPanel(); }}>
             <div className="bg-blue-600 p-2.5 rounded-xl text-white shadow-xs">
               <BookOpen className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-xl font-sans font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                Livraria <span className="text-blue-600 font-display">Supabase</span>
+                Minha <span className="text-blue-600 font-display">Estante</span>
               </h1>
               <p className="text-[10px] text-slate-500 uppercase tracking-wider font-mono">
                 Sua biblioteca digital epub gratuita
@@ -46,19 +42,6 @@ export default function Header({
           {/* Navigation Controls */}
           <div className="flex items-center gap-3" id="header-nav-group">
             
-            {/* Documentation Analysis Toggle */}
-            <button
-              onClick={onToggleDocs}
-              className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-                showDocs 
-                  ? "bg-blue-600 text-white shadow-xs" 
-                  : "bg-gray-100 hover:bg-gray-200 text-slate-700"
-              }`}
-            >
-              <HelpCircle className="w-4 h-4" />
-              <span>Análise de Hospedagens</span>
-            </button>
-
             {/* Conditionally show Admin Panel Button if user has role === admin */}
             {user?.role === "admin" && (
               <button

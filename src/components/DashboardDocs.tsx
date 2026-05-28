@@ -101,6 +101,7 @@ create table if not exists public.user_profiles (
   email text not null,
   role text not null check (role in ('admin', 'user')) default 'user',
   status text not null check (status in ('active', 'banned')) default 'active',
+  must_change_password boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -126,6 +127,7 @@ create table if not exists public.books (
   author text not null,
   year integer not null,
   genre text not null,
+  synopsis text default '',
   cover_url text not null,
   file_url text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null

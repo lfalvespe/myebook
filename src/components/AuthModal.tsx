@@ -272,39 +272,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                   </div>
                 </div>
 
-                {/* Role selection only on SignUp */}
-                {!isLogin && (
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 block mb-1">Cargo Desejado (Nível de Acesso)</label>
-                    <div className="grid grid-cols-2 gap-3 mt-1">
-                      <button
-                        type="button"
-                        onClick={() => setRole("user")}
-                        className={`py-2 px-3 border rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
-                          role === "user"
-                            ? "border-blue-500 bg-blue-50 text-blue-700 font-semibold"
-                            : "border-gray-200 hover:bg-slate-50 text-slate-600"
-                        }`}
-                      >
-                        Usuário Leitor (User)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRole("admin")}
-                        className={`py-2 px-3 border rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
-                          role === "admin"
-                            ? "border-blue-500 bg-blue-50 text-blue-700 font-semibold"
-                            : "border-gray-200 hover:bg-slate-50 text-slate-600"
-                        }`}
-                      >
-                        Administrador (Admin)
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      *Para fins de avaliação neste protótipo, você pode criar uma conta Admin diretamente.
-                    </p>
-                  </div>
-                )}
+
 
                 <button
                   type="submit"

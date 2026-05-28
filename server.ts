@@ -295,7 +295,40 @@ async function startServer() {
   app.post("/api/auth/register", async (req, res) => {
     const { email, password, role } = req.body; // se o primeiro admin se cadastrar, permitimos especificar role
 
-    const desiredRole = role === "admin" ? "admin" : "user";
+    let isCallerAdmin = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const callerId = authHeader.split(" ")[1];
+      if (callerId) {
+        if (isSupabaseConfigured && supabase) {
+          try {
+            const clientToUse = supabaseAdmin || supabase;
+            const { data: profile } = await clientToUse
+              .from("user_profiles")
+              .select("role")
+              .eq("id", callerId)
+              .maybeSingle();
+            if (profile && profile.role === "admin") {
+              isCallerAdmin = true;
+            }
+          } catch (err) {
+            console.warn("Erro ao verificar admin no Supabase:", err);
+          }
+        } else {
+          const db = loadLocalDB();
+          const profile = db.users.find(u => u.id === callerId);
+          if (profile && profile.role === "admin") {
+            isCallerAdmin = true;
+          }
+        }
+      }
+    }
+
+    // Apenas admins podem criar novas contas com a role 'admin'. Se for self-service, forçamos 'user'.
+    const desiredRole = (role === "admin" && isCallerAdmin) ? "admin" : "user";
+    
+    // Se a conta for cadastrada por um admin (ex: senha inicial/temporária criada pelo painel), obrigamos trocar
+    const mustChangePassword = isCallerAdmin;
 
     if (!email || !password) {
       return res.status(400).json({ error: "Preencha o campo de email e senha." });
@@ -358,7 +391,8 @@ async function startServer() {
             .from("user_profiles")
             .update({
               role: desiredRole,
-              status: "active"
+              status: "active",
+              must_change_password: mustChangePassword
             })
             .eq("id", authId);
           profileErr = updateErr;
@@ -370,7 +404,8 @@ async function startServer() {
               id: authId,
               email,
               role: desiredRole,
-              status: "active"
+              status: "active",
+              must_change_password: mustChangePassword
             }]);
           profileErr = insertErr;
         }
@@ -385,7 +420,8 @@ async function startServer() {
             id: authId,
             email,
             role: desiredRole,
-            status: "active"
+            status: "active",
+            must_change_password: mustChangePassword
           },
           message: supabaseAdmin ? "Conta criada e confirmada com sucesso!" : "Conta criada com sucesso! Verifique seu email caso esteja habilitado no painel do Supabase."
         });
@@ -407,6 +443,7 @@ async function startServer() {
         email,
         role: desiredRole,
         status: "active",
+        must_change_password: mustChangePassword,
         created_at: new Date().toISOString()
       };
 
