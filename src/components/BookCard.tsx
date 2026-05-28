@@ -5,16 +5,22 @@ import { Book as BookType } from "../types";
 interface BookCardProps {
   book: BookType;
   isLoggedIn: boolean;
+  userRole?: 'admin' | 'user';
   onDownloadRequest: () => void;
+  onUnauthorizedDownload?: () => void;
   key?: string;
 }
 
-export default function BookCard({ book, isLoggedIn, onDownloadRequest }: BookCardProps) {
+export default function BookCard({ book, isLoggedIn, userRole, onDownloadRequest, onUnauthorizedDownload }: BookCardProps) {
   const [showSynopsisModal, setShowSynopsisModal] = useState(false);
 
   const handleDownload = () => {
     if (!isLoggedIn) {
       onDownloadRequest();
+    } else if (userRole === "user") {
+      if (onUnauthorizedDownload) {
+        onUnauthorizedDownload();
+      }
     } else {
       // For standard files, open in new tab or trigger an HTML download
       const link = document.createElement("a");
@@ -97,12 +103,20 @@ export default function BookCard({ book, isLoggedIn, onDownloadRequest }: BookCa
             onClick={handleDownload}
             className={`w-full text-xs font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-2 border cursor-pointer transition-all ${
               isLoggedIn 
-                ? "bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800" 
+                ? userRole === "user"
+                  ? "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-800"
+                  : "bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800"
                 : "bg-gray-150 hover:bg-gray-200 border-gray-200 text-slate-700"
             }`}
           >
             <Download className="w-3.5 h-3.5" />
-            <span>{isLoggedIn ? "Baixar Livro" : "Cadastre-se para Baixar"}</span>
+            <span>
+              {!isLoggedIn 
+                ? "Cadastre-se para Baixar" 
+                : userRole === "user"
+                  ? "Baixar (Apenas Admin)"
+                  : "Baixar Livro"}
+            </span>
           </button>
         </div>
       </div>
@@ -183,16 +197,26 @@ export default function BookCard({ book, isLoggedIn, onDownloadRequest }: BookCa
               <button
                 onClick={() => {
                   handleDownload();
-                  setShowSynopsisModal(false);
+                  if (!isLoggedIn || userRole !== "user") {
+                    setShowSynopsisModal(false);
+                  }
                 }}
                 className={`py-2 px-4 rounded-lg text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all border ${
                   isLoggedIn 
-                    ? "bg-blue-600 hover:bg-blue-700 text-white border-transparent shadow-xs" 
+                    ? userRole === "user"
+                      ? "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-800"
+                      : "bg-blue-600 hover:bg-blue-700 text-white border-transparent shadow-xs" 
                     : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
                 }`}
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>{isLoggedIn ? "Baixar Livro" : "Cadastre-se para Baixar"}</span>
+                <span>
+                  {!isLoggedIn 
+                    ? "Cadastre-se para Baixar" 
+                    : userRole === "user"
+                      ? "Privado para Admin"
+                      : "Baixar Livro"}
+                </span>
               </button>
             </div>
           </div>

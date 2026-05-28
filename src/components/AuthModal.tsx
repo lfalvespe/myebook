@@ -328,32 +328,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                   {isLogin ? "Não tem uma conta? Cadastre-se gratis" : "Já possui conta? Faça o Login aqui"}
                 </button>
               </div>
-
-              {/* Quick-select Test Logins */}
-              {isLogin && (
-                <div className="mt-4 bg-slate-50 p-4 rounded-lg border border-dashed border-gray-200">
-                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">
-                    ⚡ Login Rápido de Teste (Local)
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleQuickFill("user")}
-                      className="bg-white border border-gray-200 hover:bg-blue-50 hover:border-blue-200 text-slate-700 hover:text-blue-800 text-xs py-1.5 px-3 rounded-lg flex-1 font-medium transition-all cursor-pointer"
-                    >
-                      Perfil Leitor (User)
-                    </button>
-                    <button
-                      onClick={() => handleQuickFill("admin")}
-                      className="bg-white border border-gray-200 hover:bg-blue-50 hover:border-blue-200 text-slate-700 hover:text-blue-800 text-xs py-1.5 px-3 rounded-lg flex-1 font-medium transition-all cursor-pointer"
-                    >
-                      Perfil Administrador (Admin)
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-2 text-center">
-                    Substitua as credenciais se for conectar seu próprio Supabase!
-                  </p>
-                </div>
-              )}
             </>
           )}
 

@@ -25,29 +25,6 @@ export default function Header({
 }: HeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 text-slate-900 relative z-10" id="app-header">
-      {/* Dynamic Status / Banner for Local Fallback VS Supabase */}
-      <div 
-        className={`text-center py-2 px-4 text-xs font-medium flex items-center justify-center gap-2 ${
-          configStatus?.isConfigured 
-            ? "bg-blue-50 text-blue-800 border-b border-blue-150/40" 
-            : "bg-amber-50 text-amber-800 border-b border-amber-150/40"
-        }`}
-        id="db-status-banner"
-      >
-        <Database className="w-3.5 h-3.5 shrink-0" />
-        <span>
-          {configStatus?.isConfigured 
-            ? "Conectado ao Banco e Storage do Supabase (Modo Real)" 
-            : "Executando em Modo Demonstrativo Local (Configure o arquivo .env para ligar seu Supabase)"}
-        </span>
-        <button 
-          onClick={onToggleDocs}
-          className="ml-2 underline hover:text-blue-750 flex items-center gap-0.5 font-bold cursor-pointer transition-colors"
-        >
-          <HelpCircle className="w-3 h-3" /> Ver Detalhes
-        </button>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
           

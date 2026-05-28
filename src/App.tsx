@@ -25,6 +25,7 @@ export default function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
   const [alertDownload, setAlertDownload] = useState(false);
+  const [alertRoleDownload, setAlertRoleDownload] = useState(false);
 
   // Fetch configuration status
   const checkConfigStatus = async () => {
@@ -137,6 +138,17 @@ export default function App() {
             </button>
           </div>
           <button onClick={() => setAlertDownload(false)} className="text-white hover:text-amber-100 font-bold ml-2">×</button>
+        </div>
+      )}
+
+      {/* Warning popup for downloads if user role is user (Leitor) */}
+      {alertRoleDownload && (
+        <div id="role-download-warning-banner" className="bg-rose-650 text-white text-xs sm:text-sm py-3 px-4 font-medium flex items-center justify-between shadow-md transition-all duration-300">
+          <div className="flex items-center gap-2 max-w-2xl mx-auto">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-205" />
+            <span>Seu perfil de <strong>Leitor</strong> não possui permissão de download. Faça login como <strong>Administrador</strong> para baixar as obras!</span>
+          </div>
+          <button onClick={() => setAlertRoleDownload(false)} className="text-white hover:text-rose-100 font-bold ml-2">×</button>
         </div>
       )}
 
@@ -265,7 +277,9 @@ export default function App() {
                         key={book.id}
                         book={book}
                         isLoggedIn={Boolean(user)}
+                        userRole={user?.role}
                         onDownloadRequest={() => setAlertDownload(true)}
+                        onUnauthorizedDownload={() => setAlertRoleDownload(true)}
                       />
                     ))}
                   </div>
@@ -286,7 +300,9 @@ export default function App() {
                               key={book.id}
                               book={book}
                               isLoggedIn={Boolean(user)}
+                              userRole={user?.role}
                               onDownloadRequest={() => setAlertDownload(true)}
+                              onUnauthorizedDownload={() => setAlertRoleDownload(true)}
                             />
                           ))}
                         </div>
@@ -310,7 +326,9 @@ export default function App() {
                               key={book.id}
                               book={book}
                               isLoggedIn={Boolean(user)}
+                              userRole={user?.role}
                               onDownloadRequest={() => setAlertDownload(true)}
+                              onUnauthorizedDownload={() => setAlertRoleDownload(true)}
                             />
                           ))}
                         </div>
