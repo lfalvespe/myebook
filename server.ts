@@ -297,17 +297,29 @@ async function startServer() {
 
     let isCallerAdmin = false;
     const authHeader = req.headers.authorization;
+    console.log("[REGISTER DEBUG] Received request to register:", email, "with requested role:", role);
+    console.log("[REGISTER DEBUG] Authorization Header:", authHeader);
+
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const callerId = authHeader.split(" ")[1];
+      console.log("[REGISTER DEBUG] Extracted caller ID:", callerId);
       if (callerId) {
         if (isSupabaseConfigured && supabase) {
           try {
             const clientToUse = supabaseAdmin || supabase;
-            const { data: profile } = await clientToUse
+            console.log("[REGISTER DEBUG] Checking admin profile in Supabase using client:", supabaseAdmin ? "Admin Client" : "Anon Client");
+            const { data: profile, error: errProfile } = await clientToUse
               .from("user_profiles")
               .select("role")
               .eq("id", callerId)
               .maybeSingle();
+            
+            if (errProfile) {
+              console.error("[REGISTER DEBUG] Error querying caller profile:", errProfile);
+            } else {
+              console.log("[REGISTER DEBUG] Caller profile queried successfully:", profile);
+            }
+
             if (profile && profile.role === "admin") {
               isCallerAdmin = true;
             }
@@ -317,6 +329,7 @@ async function startServer() {
         } else {
           const db = loadLocalDB();
           const profile = db.users.find(u => u.id === callerId);
+          console.log("[REGISTER DEBUG] Checking local fallback profile:", profile);
           if (profile && profile.role === "admin") {
             isCallerAdmin = true;
           }
@@ -324,11 +337,15 @@ async function startServer() {
       }
     }
 
+    console.log("[REGISTER DEBUG] Evaluated isCallerAdmin:", isCallerAdmin);
+
     // Apenas admins podem criar novas contas com a role 'admin'. Se for self-service, forçamos 'user'.
     const desiredRole = (role === "admin" && isCallerAdmin) ? "admin" : "user";
     
     // Se a conta for cadastrada por um admin (ex: senha inicial/temporária criada pelo painel), obrigamos trocar
     const mustChangePassword = isCallerAdmin;
+
+    console.log("[REGISTER DEBUG] Desired Role:", desiredRole, "| mustChangePassword:", mustChangePassword);
 
     if (!email || !password) {
       return res.status(400).json({ error: "Preencha o campo de email e senha." });
@@ -341,6 +358,7 @@ async function startServer() {
 
         // Se o adminClient (Service Role Key) estiver disponível, criamos diretamente para burlar verificação de email
         if (supabaseAdmin) {
+          console.log("[REGISTER DEBUG] Creating user using Supabase Admin Auth API...");
           const { data, error } = await supabaseAdmin.auth.admin.createUser({
             email,
             password,
@@ -350,10 +368,14 @@ async function startServer() {
             }
           });
 
-          if (error) return res.status(400).json({ error: error.message });
+          if (error) {
+            console.error("[REGISTER DEBUG] Error creating auth user via admin API:", error);
+            return res.status(400).json({ error: error.message });
+          }
           authUser = data.user;
           authId = data.user.id;
         } else {
+          console.log("[REGISTER DEBUG] Creating user using standard Supabase Auth SignUp API...");
           // Signup padrão normal (pode requerer ativação por email dependendo das configurações do Supabase)
           const { data, error } = await supabase.auth.signUp({
             email,
@@ -365,7 +387,10 @@ async function startServer() {
             }
           });
 
-          if (error) return res.status(400).json({ error: error.message });
+          if (error) {
+            console.error("[REGISTER DEBUG] Error creating auth user via signUp API:", error);
+            return res.status(400).json({ error: error.message });
+          }
           authUser = data.user;
           if (data.user) authId = data.user.id;
         }
@@ -374,18 +399,26 @@ async function startServer() {
           return res.status(400).json({ error: "Não foi possível criar o usuário no catálogo do Supabase." });
         }
 
+        console.log("[REGISTER DEBUG] Auth User created successfully. ID:", authId);
+
         // Criar ou atualizar de forma resiliente o registro na tabela de user_profiles
         const clientToUseForReg = supabaseAdmin || supabase;
         
         // Verificar se já existe um registro correspondente (de triggers ou execuções paralelas)
+        console.log("[REGISTER DEBUG] Checking if user profile already exists for ID:", authId);
         const { data: existingProfile, error: checkErr } = await clientToUseForReg
           .from("user_profiles")
           .select("id")
           .eq("id", authId)
           .maybeSingle();
 
+        if (checkErr) {
+          console.error("[REGISTER DEBUG] Error checking for existing profile:", checkErr);
+        }
+
         let profileErr = null;
         if (existingProfile) {
+          console.log("[REGISTER DEBUG] Profile already exists. Performing an UPDATE to role:", desiredRole);
           // Atualiza o registro existente de forma explícita
           const { error: updateErr } = await clientToUseForReg
             .from("user_profiles")
@@ -395,8 +428,22 @@ async function startServer() {
               must_change_password: mustChangePassword
             })
             .eq("id", authId);
-          profileErr = updateErr;
+
+          if (updateErr && (updateErr.code === "PGRST204" || updateErr.message?.includes("must_change_password"))) {
+            console.log("[REGISTER DEBUG] PGRST204 column missing error, retrying update without must_change_password...");
+            const { error: retryUpdateErr } = await clientToUseForReg
+              .from("user_profiles")
+              .update({
+                role: desiredRole,
+                status: "active"
+              })
+              .eq("id", authId);
+            profileErr = retryUpdateErr;
+          } else {
+            profileErr = updateErr;
+          }
         } else {
+          console.log("[REGISTER DEBUG] Profile does not exist. Performing an INSERT with role:", desiredRole);
           // Insere um novo registro
           const { error: insertErr } = await clientToUseForReg
             .from("user_profiles")
@@ -407,11 +454,28 @@ async function startServer() {
               status: "active",
               must_change_password: mustChangePassword
             }]);
-          profileErr = insertErr;
+
+          if (insertErr && (insertErr.code === "PGRST204" || insertErr.message?.includes("must_change_password"))) {
+            console.log("[REGISTER DEBUG] PGRST204 column missing error, retrying insert without must_change_password...");
+            const { error: retryInsertErr } = await clientToUseForReg
+              .from("user_profiles")
+              .insert([{
+                id: authId,
+                email,
+                role: desiredRole,
+                status: "active"
+              }]);
+            profileErr = retryInsertErr;
+          } else {
+            profileErr = insertErr;
+          }
         }
 
         if (profileErr) {
+          console.error("[REGISTER DEBUG] Error in profile upsert:", profileErr);
           console.error("Aviso: perfil não pôde ser inserido/atualizado na tabela de perfis:", profileErr.message);
+        } else {
+          console.log("[REGISTER DEBUG] Profile upserted successfully in database!");
         }
 
         return res.json({
@@ -485,7 +549,11 @@ async function startServer() {
           .eq("id", userId);
 
         if (profileErr) {
-          console.warn("Aviso: perfil não pôde ser atualizado no Supabase", profileErr);
+          if (profileErr.code === "PGRST204" || profileErr.message?.includes("must_change_password")) {
+            console.log("[PASSWORD RESET DEBUG] must_change_password column is missing in Database, ignoring profile update.");
+          } else {
+            console.warn("Aviso: perfil não pôde ser atualizado no Supabase", profileErr);
+          }
         }
 
         // Recuperar perfil atualizado
