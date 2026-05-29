@@ -86,14 +86,26 @@ export default function BookCard({ book, isLoggedIn, userRole, onDownloadRequest
           </div>
 
           {book.synopsis && (
-            <div 
-              onClick={() => setShowSynopsisModal(true)}
-              className="mt-3 text-xs text-slate-600 dark:text-slate-300 bg-slate-50/80 dark:bg-slate-950/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 leading-relaxed max-h-24 overflow-y-auto cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-850/60 transition-colors" 
-              title="Clique para ver a sinopse completa"
-            >
-              <span className="font-semibold text-slate-700 dark:text-slate-400 block mb-0.5 text-[10px] uppercase tracking-wider">Sinopse:</span>
-              <p className="italic text-[11px] line-clamp-3">"{book.synopsis}"</p>
-            </div>
+            <>
+              {/* Desktop Synopsis Preview Box */}
+              <div 
+                onClick={() => setShowSynopsisModal(true)}
+                className="hidden sm:block mt-3 text-xs text-slate-600 dark:text-slate-300 bg-slate-50/80 dark:bg-slate-950/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 leading-relaxed max-h-24 overflow-y-auto cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-850/60 transition-colors" 
+                title="Clique para ver a sinopse completa"
+              >
+                <span className="font-semibold text-slate-700 dark:text-slate-400 block mb-0.5 text-[10px] uppercase tracking-wider">Sinopse:</span>
+                <p className="italic text-[11px] line-clamp-3">"{book.synopsis}"</p>
+              </div>
+
+              {/* Mobile Synopsis Button */}
+              <button 
+                onClick={() => setShowSynopsisModal(true)}
+                className="sm:hidden w-full mt-3 text-xs font-semibold py-2 px-3 bg-slate-50 dark:bg-slate-950/40 hover:bg-slate-105 dark:hover:bg-slate-850 text-slate-705 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>Sinopse</span>
+              </button>
+            </>
           )}
         </div>
 
