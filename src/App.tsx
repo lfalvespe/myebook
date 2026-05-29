@@ -12,6 +12,25 @@ export default function App() {
     const saved = localStorage.getItem("livraria_user");
     return saved ? JSON.parse(saved) : null;
   });
+
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const saved = localStorage.getItem("livraria_theme");
+    return (saved === "light" || saved === "dark") ? saved : "dark";
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+    localStorage.setItem("livraria_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === "dark" ? "light" : "dark");
+  };
   
   const [configStatus, setConfigStatus] = useState<SupabaseConfigStatus | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
@@ -101,7 +120,7 @@ export default function App() {
   }, {} as Record<string, Book[]>);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-emerald-100 selection:text-emerald-900" id="app-root">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans selection:bg-emerald-100 selection:text-emerald-900" id="app-root">
       
       {/* Global Header */}
       <Header
@@ -114,6 +133,8 @@ export default function App() {
           setShowAdminPanel(!showAdminPanel);
           if (showDocs) setShowDocs(false);
         }}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       {/* Warning popup for downloads if visitor is not logged in */}
@@ -163,38 +184,38 @@ export default function App() {
           <div className="space-y-8 animate-in fade-in duration-300">
             
             {/* Catalog Hero Stats bento */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 md:p-10 text-slate-900 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 md:p-10 text-slate-900 dark:text-slate-100 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xs">
               <div className="space-y-3 text-center md:text-left">
-                <span className="bg-blue-50 text-blue-700 text-[10px] font-bold tracking-widest font-mono uppercase px-3 py-1 rounded-sm border border-blue-100">
+                <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[10px] font-bold tracking-widest font-mono uppercase px-3 py-1 rounded-sm border border-blue-100 dark:border-blue-900/60">
                   Biblioteca Literária Digital
                 </span>
-                <h3 className="text-2xl md:text-3xl font-sans font-bold tracking-tight text-slate-900">
+                <h3 className="text-2xl md:text-3xl font-sans font-bold tracking-tight text-slate-900 dark:text-white">
                   Encontre e baixe seus livros favoritos
                 </h3>
-                <p className="text-sm text-slate-500 max-w-xl leading-relaxed">
+                <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
                   Explore nosso catálogo estruturado em formato EPUB. Cadastre-se em segundos para poder iniciar downloads ilimitados.
                 </p>
               </div>
 
               {/* Little stats block */}
-              <div className="grid grid-cols-3 gap-6 bg-slate-50 p-6 rounded-xl border border-gray-200 divide-x divide-gray-150 shrink-0 w-full md:w-auto">
+              <div className="grid grid-cols-3 gap-6 bg-slate-50 dark:bg-slate-950/50 p-6 rounded-xl border border-gray-200 dark:border-slate-800 divide-x divide-gray-150 dark:divide-slate-800 shrink-0 w-full md:w-auto">
                 <div className="px-3 text-center">
-                  <span className="block text-xl md:text-2xl font-bold font-display text-blue-600">{totalBooksCount}</span>
-                  <span className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Obras</span>
+                  <span className="block text-xl md:text-2xl font-bold font-display text-blue-600 dark:text-blue-400">{totalBooksCount}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest font-medium">Obras</span>
                 </div>
                 <div className="px-3 text-center">
-                  <span className="block text-xl md:text-2xl font-bold font-display text-blue-600">{genresSet.length}</span>
-                  <span className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Gêneros</span>
+                  <span className="block text-xl md:text-2xl font-bold font-display text-blue-600 dark:text-blue-400">{genresSet.length}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest font-medium">Gêneros</span>
                 </div>
                 <div className="px-3 text-center">
-                  <span className="block text-xl md:text-2xl font-bold font-display text-blue-600">{authorsSet.length}</span>
-                  <span className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">Autores</span>
+                  <span className="block text-xl md:text-2xl font-bold font-display text-blue-600 dark:text-blue-400">{authorsSet.length}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest font-medium">Autores</span>
                 </div>
               </div>
             </div>
 
             {/* Filter controls / Search bar */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-4 flex flex-col md:flex-row items-center gap-4 justify-between" id="search-filter-box">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-xs p-4 flex flex-col md:flex-row items-center gap-4 justify-between" id="search-filter-box">
               
               {/* Search input */}
               <div className="relative w-full md:max-w-md">
@@ -204,19 +225,19 @@ export default function App() {
                   placeholder="Pesquise por título, autor ou gênero..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50 border border-gray-200 rounded-lg py-2.5 pl-11 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all duration-200"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg py-2.5 pl-11 pr-4 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all duration-200"
                 />
               </div>
 
               {/* Grouping Selectors (Genre, Autor, Todos) */}
               <div className="flex items-center gap-2 self-stretch md:self-auto scrollbar-none overflow-x-auto w-full md:w-auto shrink-0">
-                <span className="text-xs text-slate-500 hidden sm:inline font-medium uppercase tracking-wide">Exibir em:</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline font-medium uppercase tracking-wide">Exibir em:</span>
                 
-                <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
+                <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl w-full sm:w-auto">
                   <button
                     onClick={() => setViewGroupBy("none")}
                     className={`flex-1 sm:flex-none py-1.5 px-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
-                      viewGroupBy === "none" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-800"
+                      viewGroupBy === "none" ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                     }`}
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
@@ -225,7 +246,7 @@ export default function App() {
                   <button
                     onClick={() => setViewGroupBy("genre")}
                     className={`flex-1 sm:flex-none py-1.5 px-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
-                      viewGroupBy === "genre" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-800"
+                      viewGroupBy === "genre" ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                     }`}
                   >
                     <Layers3 className="w-3.5 h-3.5" />
@@ -234,7 +255,7 @@ export default function App() {
                   <button
                     onClick={() => setViewGroupBy("author")}
                     className={`flex-1 sm:flex-none py-1.5 px-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
-                      viewGroupBy === "author" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-800"
+                      viewGroupBy === "author" ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                     }`}
                   >
                     <UserIcon className="w-3.5 h-3.5" />
@@ -248,18 +269,18 @@ export default function App() {
 
             {/* Catalog list Loader states */}
             {loading ? (
-              <div className="text-center py-20 bg-white border border-slate-100 rounded-3xl shadow-xs">
+              <div className="text-center py-20 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-xs">
                 <div className="animate-pulse space-y-4 max-w-sm mx-auto">
-                  <div className="bg-slate-200 h-10 w-10 mx-auto rounded-full"></div>
-                  <div className="h-4 bg-slate-200 rounded w-3/4 mx-auto"></div>
-                  <div className="h-3 bg-slate-200 rounded w-1/2 mx-auto"></div>
+                  <div className="bg-slate-200 dark:bg-slate-800 h-10 w-10 mx-auto rounded-full"></div>
+                  <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-3/4 mx-auto"></div>
+                  <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-1/2 mx-auto"></div>
                 </div>
               </div>
             ) : filteredBooks.length === 0 ? (
-              <div className="text-center py-20 bg-white border border-slate-100 rounded-3xl shadow-xs">
-                <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <h4 className="text-base font-sans font-semibold text-slate-800">Nenhum livro encontrado</h4>
-                <p className="text-xs text-slate-500 mt-1">Tente substituir os termos pesquisados ou cadastre novas obras usando uma conta Admin!</p>
+              <div className="text-center py-20 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-xs">
+                <BookOpen className="w-12 h-12 text-slate-300 dark:text-slate-755 mx-auto mb-3" />
+                <h4 className="text-base font-sans font-semibold text-slate-800 dark:text-slate-200">Nenhum livro encontrado</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Tente substituir os termos pesquisados ou cadastre novas obras usando uma conta Admin!</p>
               </div>
             ) : (
               <div id="catalog-main-content">
@@ -285,9 +306,9 @@ export default function App() {
                    <div className="space-y-10" id="grouped-by-genre-container">
                     {(Object.entries(groupedByGenre) as [string, Book[]][]).map(([genreName, bookList]) => (
                       <div key={genreName} className="space-y-4" id={`genre-section-${genreName}`}>
-                        <div className="flex items-center gap-3 border-b border-gray-100 pb-2">
-                          <span className="bg-blue-50 text-blue-800 border border-blue-100 text-xs font-bold uppercase py-0.5 px-2 rounded font-mono">{bookList.length}</span>
-                          <h3 className="text-lg font-sans font-bold text-slate-800 tracking-tight">Obras de <span className="text-blue-600">{genreName}</span></h3>
+                        <div className="flex items-center gap-3 border-b border-gray-100 dark:border-slate-800 pb-2">
+                          <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-100 dark:border-blue-900/50 text-xs font-bold uppercase py-0.5 px-2 rounded font-mono">{bookList.length}</span>
+                          <h3 className="text-lg font-sans font-bold text-slate-800 dark:text-slate-150 tracking-tight">Obras de <span className="text-blue-600 dark:text-blue-400">{genreName}</span></h3>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
                           {bookList.map((book) => (
@@ -311,9 +332,9 @@ export default function App() {
                    <div className="space-y-10" id="grouped-by-author-container">
                     {(Object.entries(groupedByAuthor) as [string, Book[]][]).map(([authorName, bookList]) => (
                       <div key={authorName} className="space-y-4" id={`author-section-${authorName}`}>
-                        <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
-                          <span className="bg-blue-50 text-blue-800 border border-blue-100 text-xs font-bold uppercase py-0.5 px-2 rounded font-mono">{bookList.length}</span>
-                          <h3 className="text-lg font-sans font-bold text-slate-800 tracking-tight">Obras de <span className="text-blue-600">{authorName}</span></h3>
+                        <div className="flex items-center gap-2 border-b border-gray-100 dark:border-slate-800 pb-2">
+                          <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-100 dark:border-blue-900/50 text-xs font-bold uppercase py-0.5 px-2 rounded font-mono">{bookList.length}</span>
+                          <h3 className="text-lg font-sans font-bold text-slate-800 dark:text-slate-150 tracking-tight">Obras de <span className="text-blue-600 dark:text-blue-400">{authorName}</span></h3>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
                           {bookList.map((book) => (
@@ -348,11 +369,11 @@ export default function App() {
       />
 
       {/* Simple Footer */}
-      <footer className="bg-white border-t border-gray-200 text-slate-500 py-8 text-center text-xs mt-12 shrink-0">
+      <footer className="bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 py-8 text-center text-xs mt-12 shrink-0">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p>© 2026 Minha Estante. Todos os direitos reservados para fins de demonstração.</p>
           <div className="flex gap-4">
-            <span className="cursor-pointer hover:text-blue-600 transition-colors" onClick={user ? handleLogout : () => setIsAuthModalOpen(true)}>
+            <span className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors" onClick={user ? handleLogout : () => setIsAuthModalOpen(true)}>
               {user ? "Sair da Conta" : "Link Administrador"}
             </span>
           </div>

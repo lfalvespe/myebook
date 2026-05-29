@@ -142,7 +142,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
   return (
     <div id="auth-modal-overlay" className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 transition-all duration-300">
-      <div id="auth-modal-card" className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full overflow-hidden relative animate-in fade-in zoom-in-95 duration-150">
+      <div id="auth-modal-card" className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 max-w-md w-full overflow-hidden relative animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header */}
         <div className="bg-blue-600 p-6 text-white flex justify-between items-center relative">
@@ -173,14 +173,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         {/* Form Body */}
         <div className="p-6">
           {error && (
-            <div className="mb-4 bg-rose-50 border border-rose-100 text-rose-800 text-sm p-3 rounded-lg flex items-start gap-2 animate-shake">
+            <div className="mb-4 bg-rose-50 dark:bg-rose-950/20 border border-rose-105 dark:border-rose-900/40 text-rose-800 dark:text-rose-300 text-sm p-3 rounded-lg flex items-start gap-2 animate-shake">
               <ShieldAlert className="w-5 h-5 shrink-0 text-rose-500 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="mb-4 bg-blue-50 border border-blue-100 text-blue-800 text-sm p-3 rounded-lg flex items-start gap-2">
+            <div className="mb-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-105 dark:border-blue-900/40 text-blue-800 dark:text-blue-300 text-sm p-3 rounded-lg flex items-start gap-2">
               <BadgeCheck className="w-5 h-5 shrink-0 text-blue-500 mt-0.5" />
               <span>{successMsg}</span>
             </div>
@@ -189,44 +189,44 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
           {forceChangePasswordUser ? (
             <form onSubmit={handleForceChangePassword} className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-500 block mb-1">E-mail</label>
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">E-mail</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                   <input
                     type="email"
                     disabled
                     value={forceChangePasswordUser.email}
-                    className="w-full bg-slate-100 border border-gray-200 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-500 cursor-not-allowed font-mono"
+                    className="w-full bg-slate-100 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-500 dark:text-slate-400 cursor-not-allowed font-mono"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-500 block mb-1">Nova Senha</label>
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Nova Senha</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                   <input
                     type="password"
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Defina sua nova senha"
-                    className="w-full bg-slate-50 border border-gray-200 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all duration-200"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all duration-200"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-500 block mb-1">Confirmar Nova Senha</label>
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Confirmar Nova Senha</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                   <input
                     type="password"
                     required
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
                     placeholder="Confirme sua nova senha"
-                    className="w-full bg-slate-50 border border-gray-200 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all duration-200"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all duration-200"
                   />
                 </div>
               </div>
@@ -243,36 +243,34 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             <>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="text-xs font-medium text-slate-500 block mb-1">E-mail</label>
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">E-mail</label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <input
                       type="email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="seuemail@exemplo.com"
-                      className="w-full bg-slate-50 border border-gray-200 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all duration-200"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all duration-200"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-500 block mb-1">Senha</label>
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">Senha</label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <input
                       type="password"
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full bg-slate-50 border border-gray-200 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all duration-200"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all duration-200"
                     />
                   </div>
                 </div>
-
-
 
                 <button
                   type="submit"
@@ -284,14 +282,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               </form>
 
               {/* Prompt to register or login */}
-              <div className="mt-5 border-t border-gray-100 pt-4 text-center">
+              <div className="mt-5 border-t border-gray-100 dark:border-slate-800 pt-4 text-center">
                 <button
                   onClick={() => {
                     setIsLogin(!isLogin);
                     setError("");
                     setSuccessMsg("");
                   }}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium cursor-pointer"
                 >
                   {isLogin ? "Não tem uma conta? Cadastre-se gratis" : "Já possui conta? Faça o Login aqui"}
                 </button>

@@ -438,24 +438,24 @@ export default function AdminPanel({ onBookAdded, books, currentUser }: AdminPan
   };
 
   return (
-    <div id="admin-panel" className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8 max-w-4xl mx-auto my-8">
+    <div id="admin-panel" className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-6 md:p-8 max-w-4xl mx-auto my-8 transition-all duration-300">
       
       {/* Title & Navigation */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-150 pb-5 mb-6" id="panel-tabs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-150 dark:border-slate-800 pb-5 mb-6" id="panel-tabs">
         <div>
-          <h2 className="text-xl font-sans font-bold text-slate-800 flex items-center gap-2">
-            <span className="bg-amber-100 text-amber-800 py-1 px-2.5 rounded-lg text-xs font-mono font-bold uppercase">Painel</span>
+          <h2 className="text-xl font-sans font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <span className="bg-amber-100 dark:bg-amber-955/40 text-amber-800 dark:text-amber-300 py-1 px-2.5 rounded-lg text-xs font-mono font-bold uppercase border border-transparent dark:border-amber-900/40">Painel</span>
             Controles de Administração
           </h2>
-          <p className="text-xs text-slate-500 mt-1">Gerencie a listagem de catálogos e configure permissões de usuários vinculados.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Gerencie a listagem de catálogos e configure permissões de usuários vinculados.</p>
         </div>
 
         {/* Tabs Control */}
-        <div className="flex bg-slate-100 p-1 rounded-xl gap-1 shrink-0 overflow-x-auto">
+        <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl gap-1 shrink-0 overflow-x-auto">
           <button
             onClick={() => setActiveTab("register")}
             className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
-              activeTab === "register" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-800"
+              activeTab === "register" ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
             <BookOpen className="w-4 h-4" />
@@ -464,7 +464,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser }: AdminPan
           <button
             onClick={() => setActiveTab("manage-books")}
             className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
-              activeTab === "manage-books" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-800"
+              activeTab === "manage-books" ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
             <Layers className="w-4 h-4" />
@@ -473,7 +473,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser }: AdminPan
           <button
             onClick={() => setActiveTab("users")}
             className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
-              activeTab === "users" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-800"
+              activeTab === "users" ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
             <Users className="w-4 h-4" />

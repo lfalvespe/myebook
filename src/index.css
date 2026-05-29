@@ -7,6 +7,8 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer utilities {
   /* Dynamic microanimations */
   .animate-shake {
