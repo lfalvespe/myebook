@@ -71,7 +71,16 @@ export default function Header({
                 }`}
               >
                 <LayoutDashboard className="w-4 h-4" />
-                <span>{showAdminPanel ? "Voltar para Home" : "Painel Administrador"}</span>
+                <span>
+                  {showAdminPanel ? (
+                    <>
+                      <span className="sm:hidden">Catálogo</span>
+                      <span className="hidden sm:inline">Voltar para Home</span>
+                    </>
+                  ) : (
+                    "Painel Administrador"
+                  )}
+                </span>
               </button>
             )}
 
