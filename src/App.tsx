@@ -187,13 +187,13 @@ export default function App() {
             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 md:p-10 text-slate-900 dark:text-slate-100 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xs">
               <div className="space-y-3 text-center md:text-left">
                 <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[10px] font-bold tracking-widest font-mono uppercase px-3 py-1 rounded-sm border border-blue-100 dark:border-blue-900/60">
-                  Biblioteca Literária Digital
+                  Coleção Literária
                 </span>
                 <h3 className="text-2xl md:text-3xl font-sans font-bold tracking-tight text-slate-900 dark:text-white">
-                  Encontre e baixe seus livros favoritos
+                  Qual o seu próximo livro favorito?
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
-                  Explore nosso catálogo estruturado em formato EPUB. Cadastre-se em segundos para poder iniciar downloads ilimitados.
+                  Uma coleção de obras de gêneros variados, clássicos, contemporâneos e atemporais.
                 </p>
               </div>
 

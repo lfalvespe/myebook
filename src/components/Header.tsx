@@ -38,7 +38,7 @@ export default function Header({
                 Minha <span className="text-blue-600 dark:text-blue-400 font-display">Estante</span>
               </h1>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
-                Sua biblioteca digital epub gratuita
+                Biblioteca digital
               </p>
             </div>
           </div>
