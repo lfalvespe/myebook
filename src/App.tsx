@@ -173,7 +173,7 @@ export default function App() {
         
         {/* Toggleable Admin Panel */}
         {showAdminPanel && user?.role === "admin" && (
-          <AdminPanel onBookAdded={loadBooks} books={books} currentUser={user} />
+          <AdminPanel onBookAdded={loadBooks} books={books} currentUser={user} onBackToHome={() => setShowAdminPanel(false)} />
         )}
 
         {/* Toggleable Documentation / Comparison Panel */}

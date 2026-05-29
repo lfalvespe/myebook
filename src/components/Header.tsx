@@ -66,12 +66,12 @@ export default function Header({
                 onClick={onToggleAdminPanel}
                 className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
                   showAdminPanel 
-                    ? "bg-blue-600 text-white shadow-xs" 
+                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-xs" 
                     : "bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/65 hover:bg-amber-150 dark:hover:bg-amber-950/70"
                 }`}
               >
                 <LayoutDashboard className="w-4 h-4" />
-                <span>Painel Administrador</span>
+                <span>{showAdminPanel ? "Voltar para Home" : "Painel Administrador"}</span>
               </button>
             )}
 

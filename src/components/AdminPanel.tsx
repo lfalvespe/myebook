@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Upload, Users, BookOpen, Key, Trash2, Ban, ShieldCheck, CheckCircle2, UserCheck, RefreshCw, X, ShieldAlert, Layers, Pencil } from "lucide-react";
+import { Upload, Users, BookOpen, Key, Trash2, Ban, ShieldCheck, CheckCircle2, UserCheck, RefreshCw, X, ShieldAlert, Layers, Pencil, ArrowLeft } from "lucide-react";
 import { Book, UserProfile } from "../types";
 
 interface AdminPanelProps {
   onBookAdded: () => void;
   books: Book[];
   currentUser?: UserProfile | null;
+  onBackToHome?: () => void;
 }
 
-export default function AdminPanel({ onBookAdded, books, currentUser }: AdminPanelProps) {
+export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHome }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<"register" | "manage-books" | "users">("register");
   
   // Book register states
@@ -440,6 +441,21 @@ export default function AdminPanel({ onBookAdded, books, currentUser }: AdminPan
   return (
     <div id="admin-panel" className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-6 md:p-8 max-w-4xl mx-auto my-8 transition-all duration-300">
       
+      {/* Back to Home row */}
+      {onBackToHome && (
+        <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 dark:border-slate-800/60" id="admin-back-row">
+          <button
+            onClick={onBackToHome}
+            className="flex items-center gap-2 text-xs font-semibold text-slate-750 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-850 p-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all cursor-pointer shadow-3xs"
+            id="admin-nav-back-home"
+          >
+            <ArrowLeft className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <span>Voltar para o Catálogo (Home)</span>
+          </button>
+          <span className="text-[10px] font-mono tracking-wider uppercase bg-blue-50 dark:bg-blue-950/40 text-blue-750 dark:text-blue-300 py-1.5 px-3 rounded-lg border border-blue-105/50 dark:border-blue-900/40 font-bold">Painel Restrito</span>
+        </div>
+      )}
+
       {/* Title & Navigation */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-150 dark:border-slate-800 pb-5 mb-6" id="panel-tabs">
         <div>
