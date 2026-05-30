@@ -40,17 +40,20 @@ export default function BookCard({ book, isLoggedIn, userRole, onDownloadRequest
       {/* Cover Image container */}
       <div 
         onClick={() => setShowSynopsisModal(true)}
-        className="relative aspect-[15/17] w-full overflow-hidden bg-slate-50 dark:bg-slate-950 cursor-pointer"
+        className="relative aspect-[15/17] w-full overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-slate-150/70 dark:from-slate-950 dark:via-slate-900/90 dark:to-slate-950 cursor-pointer flex items-center justify-center p-3.5 border-b border-slate-100 dark:border-slate-800/50"
         title="Clique para ver a sinopse"
       >
+        {/* Soft radial ambient spotlight highlight */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.08),transparent_70%)] dark:bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.2),transparent_70%)] pointer-events-none" />
+        
         <img 
           src={book.cover_url} 
           alt={`Capa do livro ${book.title}`}
           referrerPolicy="no-referrer"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="max-w-[85%] max-h-[85%] object-contain group-hover:scale-[1.04] transition-all duration-500 shadow-[0_8px_16px_-6px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_24px_-10px_rgba(0,0,0,0.6)] group-hover:shadow-[0_12px_24px_-4px_rgba(0,0,0,0.25)] dark:group-hover:shadow-[0_16px_32px_-8px_rgba(0,0,0,0.8)]"
         />
-        <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md text-slate-800 dark:text-slate-100 font-semibold py-2 px-4 rounded-full text-xs flex items-center justify-center gap-1.5 shadow-md transform scale-90 group-hover:scale-100 transition-transform duration-300">
+        <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
+          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md text-slate-800 dark:text-slate-100 font-semibold py-2 px-4 rounded-full text-xs flex items-center justify-center gap-1.5 shadow-md transform scale-90 group-hover:scale-100 transition-transform duration-300 pointer-events-auto">
             <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <span>Ver Sinopse</span>
           </div>
