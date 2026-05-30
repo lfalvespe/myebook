@@ -40,7 +40,7 @@ export default function BookCard({ book, isLoggedIn, userRole, onDownloadRequest
       {/* Cover Image container */}
       <div 
         onClick={() => setShowSynopsisModal(true)}
-        className="relative aspect-[3/4] w-full overflow-hidden bg-slate-50 dark:bg-slate-950 cursor-pointer"
+        className="relative aspect-[15/17] w-full overflow-hidden bg-slate-50 dark:bg-slate-950 cursor-pointer"
         title="Clique para ver a sinopse"
       >
         <img 
