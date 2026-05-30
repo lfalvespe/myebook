@@ -73,7 +73,7 @@ export default function BookCard({ book, isLoggedIn, userRole, onDownloadRequest
             {book.title}
           </h4>
           
-          <div className="mt-2.5 space-y-1">
+          <div className="hidden sm:block mt-2.5 space-y-1">
             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               <User className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
               <span className="line-clamp-1">{book.author}</span>
