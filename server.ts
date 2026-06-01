@@ -1290,6 +1290,70 @@ async function startServer() {
 
   // --- USER PROFILE, FAVORITES AND READ LOGS ---
 
+  // Buscar Perfil do Usuário
+  app.get("/api/users/:id/profile", async (req, res) => {
+    const { id } = req.params;
+    try {
+      const db = loadLocalDB();
+      
+      // Se estiver configurado o Supabase, podemos tentar ler do Supabase para ter certeza de que está atualizado
+      if (isSupabaseConfigured && supabase) {
+        const clientToUse = supabaseAdmin || supabase;
+        try {
+          const { data: sbProfile } = await clientToUse
+            .from("user_profiles")
+            .select("*")
+            .eq("id", id)
+            .maybeSingle();
+
+          if (sbProfile) {
+            let user = db.users.find(u => u.id === id);
+            if (user) {
+              // Atualizar no banco local com os dados mais recentes do Supabase
+              user.name = sbProfile.name || user.name || "";
+              user.avatar = sbProfile.avatar || user.avatar || "";
+              user.status_message = sbProfile.status_message || user.status_message || "";
+              user.favorites = sbProfile.favorites || user.favorites || [];
+              user.read_books = sbProfile.read_books || user.read_books || [];
+              user.annotations = sbProfile.annotations || user.annotations || {};
+              user.role = (sbProfile.role as "admin" | "user") || user.role || "user";
+              user.status = (sbProfile.status as "active" | "banned") || user.status || "active";
+            } else {
+              user = {
+                id: sbProfile.id,
+                email: sbProfile.email || "",
+                role: (sbProfile.role as "admin" | "user") || "user",
+                status: (sbProfile.status as "active" | "banned") || "active",
+                name: sbProfile.name || "",
+                avatar: sbProfile.avatar || "",
+                status_message: sbProfile.status_message || "",
+                favorites: sbProfile.favorites || [],
+                read_books: sbProfile.read_books || [],
+                annotations: sbProfile.annotations || {},
+                must_change_password: sbProfile.must_change_password || false,
+                created_at: sbProfile.created_at || new Date().toISOString()
+              };
+              db.users.push(user);
+            }
+            saveLocalDB(db);
+            return res.json(user);
+          }
+        } catch (supabaseErr) {
+          console.warn("Supabase profile fetch warning:", supabaseErr);
+        }
+      }
+
+      const user = db.users.find(u => u.id === id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado." });
+      }
+      return res.json(user);
+    } catch (err: any) {
+      console.error("Erro ao buscar perfil do usuário:", err);
+      return res.status(500).json({ error: "Erro interno do servidor." });
+    }
+  });
+
   // Editar Perfil do Usuário (Nome, Avatar upload e Status Message)
   app.put("/api/users/:id/profile", async (req, res) => {
     const { id } = req.params;

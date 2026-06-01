@@ -82,6 +82,24 @@ export default function App() {
     loadBooks();
   }, []);
 
+  // Sincronizar dados do usuário salvos no localStorage com os dados em tempo real no servidor (para sincronia multi-dispositivo)
+  useEffect(() => {
+    if (user?.id) {
+      fetch(`/api/users/${user.id}/profile`)
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error("Erro ao sincronizar dados mais recentes do perfil");
+        })
+        .then(updatedUser => {
+          setUser(updatedUser);
+          localStorage.setItem("livraria_user", JSON.stringify(updatedUser));
+        })
+        .catch(err => {
+          console.warn("Não foi possível carregar os dados mais recentes do perfil do servidor:", err);
+        });
+    }
+  }, [user?.id]);
+
   const handleLoginSuccess = (loggedInUser: UserProfile) => {
     setUser(loggedInUser);
     localStorage.setItem("livraria_user", JSON.stringify(loggedInUser));
