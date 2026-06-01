@@ -1370,6 +1370,71 @@ async function startServer() {
     }
   });
 
+  // Rota para restaurar/sincronizar dados residuais do cliente (útil após redeploys ou resets de banco local)
+  app.post("/api/users/:id/sync-restore", async (req, res) => {
+    const { id } = req.params;
+    const { email, name, avatar, status_message, favorites, read_books, annotations } = req.body;
+
+    try {
+      const db = loadLocalDB();
+      let user = await ensureUserExistsLocal(db, id);
+      
+      if (!user) {
+        user = {
+          id,
+          email: email || "",
+          role: "user",
+          status: "active",
+          created_at: new Date().toISOString()
+        };
+        db.users.push(user);
+      }
+
+      if (email && !user.email) {
+        user.email = email;
+      }
+      if (name) user.name = name;
+      if (avatar) user.avatar = avatar;
+      if (status_message) user.status_message = status_message;
+      if (Array.isArray(favorites)) {
+        user.favorites = Array.from(new Set([...(user.favorites || []), ...favorites]));
+      }
+      if (Array.isArray(read_books)) {
+        user.read_books = Array.from(new Set([...(user.read_books || []), ...read_books]));
+      }
+      if (annotations && typeof annotations === "object") {
+        user.annotations = { ...(user.annotations || {}), ...annotations };
+      }
+
+      saveLocalDB(db);
+
+      // Também persistimos no Supabase se configurado
+      if (isSupabaseConfigured && supabase) {
+        const clientToUse = supabaseAdmin || supabase;
+        try {
+          await clientToUse
+            .from("user_profiles")
+            .update({
+              name: user.name,
+              avatar: user.avatar,
+              status_message: user.status_message,
+              favorites: user.favorites,
+              read_books: user.read_books,
+              annotations: user.annotations
+            })
+            .eq("id", id);
+        } catch (supabaseErr) {
+          console.warn("Supabase backup sync-restore warning:", supabaseErr);
+        }
+      }
+
+      return res.json({ success: true, user });
+    } catch (err: any) {
+      console.error("Erro na rota de sync-restore:", err);
+      return res.status(500).json({ error: err.message || "Erro interno ao sincronizar dados." });
+    }
+  });
+
   // Editar Perfil do Usuário (Nome, Avatar upload e Status Message)
   app.put("/api/users/:id/profile", async (req, res) => {
     const { id } = req.params;
