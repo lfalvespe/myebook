@@ -450,13 +450,14 @@ export default function App() {
       />
 
       {/* Simple Footer */}
-      <footer className="bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 py-8 text-center text-xs mt-12 shrink-0">
+      <footer className="bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 py-8 text-xs mt-12 shrink-0">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p>© 2026 Minha Estante. Todos os direitos reservados para fins de demonstração.</p>
-          <div className="flex gap-4">
-            <span className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors" onClick={user ? handleLogout : () => setIsAuthModalOpen(true)}>
-              {user ? "Sair da Conta" : "Link Administrador"}
-            </span>
+          <p>© 2026 Minha Estante. Todos os direitos reservados.</p>
+          <div className="flex flex-col items-center sm:items-end text-center sm:text-right gap-1">
+            <span className="font-medium text-slate-700 dark:text-slate-300">Fernando Alves</span>
+            <a href="mailto:lfalvespe@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline">
+              lfalvespe@gmail.com
+            </a>
           </div>
         </div>
       </footer>

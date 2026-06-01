@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpen, LogOut, User, LayoutDashboard, HelpCircle, AlertCircle, Database, Sun, Moon } from "lucide-react";
+import { BookOpen, LogOut, User, LayoutDashboard, HelpCircle, AlertCircle, Database, Sun, Moon, Settings } from "lucide-react";
 import { UserProfile, SupabaseConfigStatus } from "../types";
 
 interface HeaderProps {
@@ -267,7 +267,11 @@ export default function Header({
                       }`}
                       title={showAdminPanel ? "Voltar ao Catálogo" : "Painel Administrador"}
                     >
-                      <LayoutDashboard className="w-4 h-4" />
+                      {showAdminPanel ? (
+                        <LayoutDashboard className="w-4 h-4" />
+                      ) : (
+                        <Settings className="w-4 h-4" />
+                      )}
                     </button>
                   )}
 
