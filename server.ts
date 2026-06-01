@@ -148,6 +148,42 @@ function saveLocalDB(db: LocalDatabase) {
   fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(db, null, 2));
 }
 
+async function ensureUserExistsLocal(db: LocalDatabase, id: string): Promise<UserProfile | undefined> {
+  let user = db.users.find(u => u.id === id);
+  if (!user && isSupabaseConfigured && supabase) {
+    try {
+      const clientToUse = supabaseAdmin || supabase;
+      const { data: sbProfile } = await clientToUse
+        .from("user_profiles")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (sbProfile) {
+        user = {
+          id: sbProfile.id,
+          email: sbProfile.email || "",
+          role: (sbProfile.role as "admin" | "user") || "user",
+          status: (sbProfile.status as "active" | "banned") || "active",
+          name: sbProfile.name || "",
+          avatar: sbProfile.avatar || "",
+          status_message: sbProfile.status_message || "",
+          favorites: sbProfile.favorites || [],
+          read_books: sbProfile.read_books || [],
+          annotations: sbProfile.annotations || {},
+          must_change_password: sbProfile.must_change_password || false,
+          created_at: sbProfile.created_at || new Date().toISOString()
+        };
+        db.users.push(user);
+        saveLocalDB(db);
+      }
+    } catch (err) {
+      console.warn("Erro ao buscar usuário no Supabase para sincronização:", err);
+    }
+  }
+  return user;
+}
+
 async function startServer() {
   const app = express();
 
@@ -1293,7 +1329,7 @@ async function startServer() {
 
       // Atualizar local database
       const db = loadLocalDB();
-      const user = db.users.find(u => u.id === id);
+      const user = await ensureUserExistsLocal(db, id);
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado." });
       }
@@ -1321,7 +1357,7 @@ async function startServer() {
 
     try {
       const db = loadLocalDB();
-      const user = db.users.find(u => u.id === id);
+      const user = await ensureUserExistsLocal(db, id);
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado." });
       }
@@ -1368,7 +1404,7 @@ async function startServer() {
 
     try {
       const db = loadLocalDB();
-      const user = db.users.find(u => u.id === id);
+      const user = await ensureUserExistsLocal(db, id);
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado." });
       }
@@ -1415,7 +1451,7 @@ async function startServer() {
 
     try {
       const db = loadLocalDB();
-      const user = db.users.find(u => u.id === id);
+      const user = await ensureUserExistsLocal(db, id);
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado." });
       }
