@@ -7,6 +7,7 @@ import AuthModal from "./components/AuthModal";
 import AdminPanel from "./components/AdminPanel";
 import DashboardDocs from "./components/DashboardDocs";
 import ProfilePanel from "./components/ProfilePanel";
+import LogoutConfirmModal from "./components/LogoutConfirmModal";
 
 export default function App() {
   const [user, setUser] = useState<UserProfile | null>(() => {
@@ -42,6 +43,7 @@ export default function App() {
   
   // UI states
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
@@ -184,7 +186,7 @@ export default function App() {
         user={user}
         configStatus={configStatus}
         onOpenAuth={() => setIsAuthModalOpen(true)}
-        onLogout={handleLogout}
+        onLogout={() => setIsLogoutConfirmOpen(true)}
         showAdminPanel={showAdminPanel}
         onToggleAdminPanel={() => {
           setShowAdminPanel(!showAdminPanel);
@@ -447,6 +449,16 @@ export default function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={handleLoginSuccess}
+      />
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={isLogoutConfirmOpen}
+        onClose={() => setIsLogoutConfirmOpen(false)}
+        onConfirm={() => {
+          handleLogout();
+          setIsLogoutConfirmOpen(false);
+        }}
       />
 
       {/* Simple Footer */}

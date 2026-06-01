@@ -295,6 +295,12 @@ async function startServer() {
             email: profile.email,
             role: profile.role as "admin" | "user",
             status: profile.status as "active" | "banned",
+            name: profile.name || "",
+            avatar: profile.avatar || "",
+            status_message: profile.status_message || "",
+            favorites: profile.favorites || [],
+            read_books: profile.read_books || [],
+            annotations: profile.annotations || {},
             created_at: profile.created_at,
             must_change_password: profile.must_change_password
           };
@@ -303,6 +309,16 @@ async function startServer() {
         if (profileData.status === "banned") {
           return res.status(403).json({ error: "Sua conta foi banida. Entre em contato com o administrador." });
         }
+
+        // Sincronizar com o banco de dados local para persistência em memória/disco
+        const db = loadLocalDB();
+        let localUser = db.users.find(u => u.id === authUser.id);
+        if (localUser) {
+          Object.assign(localUser, profileData);
+        } else {
+          db.users.push(profileData);
+        }
+        saveLocalDB(db);
 
         return res.json({
           user: profileData,
@@ -1363,15 +1379,20 @@ async function startServer() {
       // Decodificar e salvar imagem se for base64
       let avatarUrl = avatar;
       if (avatar && avatar.startsWith("data:image/")) {
-        const matches = avatar.match(/^data:image\/([A-Za-z+]+);base64,(.+)$/);
-        if (matches && matches.length === 3) {
-          const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
-          const base64Data = matches[2];
-          const buffer = Buffer.from(base64Data, "base64");
-          const filename = `profile-${id}-${Date.now()}.${ext}`;
-          const filePath = path.join(UPLOADS_DIR, filename);
-          fs.writeFileSync(filePath, buffer);
-          avatarUrl = `/uploads/${filename}`;
+        // Se estiver usando o Supabase, salvamos o base64 diretamente para ter persistência completa a cada deploy no Render
+        if (isSupabaseConfigured && supabase) {
+          avatarUrl = avatar;
+        } else {
+          const matches = avatar.match(/^data:image\/([A-Za-z+]+);base64,(.+)$/);
+          if (matches && matches.length === 3) {
+            const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
+            const base64Data = matches[2];
+            const buffer = Buffer.from(base64Data, "base64");
+            const filename = `profile-${id}-${Date.now()}.${ext}`;
+            const filePath = path.join(UPLOADS_DIR, filename);
+            fs.writeFileSync(filePath, buffer);
+            avatarUrl = `/uploads/${filename}`;
+          }
         }
       }
 
