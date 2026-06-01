@@ -84,80 +84,136 @@ export default function App() {
     loadBooks();
   }, []);
 
+  // Guardar ref do usuário mais recente para evitar closures obsoletas (stale closures) no polling do effect
+  const userRef = React.useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  const hasProfileDiff = (u1: UserProfile | null, u2: UserProfile | null) => {
+    if (!u1 || !u2) return true;
+    if (u1.id !== u2.id) return true;
+    if ((u1.name || "") !== (u2.name || "")) return true;
+    if ((u1.avatar || "") !== (u2.avatar || "")) return true;
+    if ((u1.status_message || "") !== (u2.status_message || "")) return true;
+    if (u1.role !== u2.role) return true;
+    if (u1.status !== u2.status) return true;
+    
+    const f1 = u1.favorites || [];
+    const f2 = u2.favorites || [];
+    if (f1.length !== f2.length || f1.some((v, i) => v !== f2[i])) return true;
+
+    const r1 = u1.read_books || [];
+    const r2 = u2.read_books || [];
+    if (r1.length !== r2.length || r1.some((v, i) => v !== r2[i])) return true;
+
+    if (JSON.stringify(u1.annotations || {}) !== JSON.stringify(u2.annotations || {})) return true;
+
+    return false;
+  };
+
+  const syncProfileData = async () => {
+    const currentUser = userRef.current;
+    if (!currentUser?.id) return;
+
+    try {
+      const res = await fetch(`/api/users/${currentUser.id}/profile`);
+      if (!res.ok) {
+        throw new Error("Erro ao sincronizar dados mais recentes do perfil");
+      }
+      const updatedUser = await res.json();
+
+      // Ler diretamente do localStorage para comparar e evitar re-render loop nas dependências do hook
+      const savedStr = localStorage.getItem("livraria_user");
+      if (!savedStr) {
+        setUser(updatedUser);
+        localStorage.setItem("livraria_user", JSON.stringify(updatedUser));
+        return;
+      }
+
+      const localUser = JSON.parse(savedStr);
+      const localFavoritesCount = localUser.favorites?.length || 0;
+      const localReadBooksCount = localUser.read_books?.length || 0;
+      const localHasName = !!localUser.name;
+      const localHasStatus = !!localUser.status_message;
+
+      const serverFavoritesCount = updatedUser.favorites?.length || 0;
+      const serverReadBooksCount = updatedUser.read_books?.length || 0;
+      const serverHasName = !!updatedUser.name;
+      const serverHasStatus = !!updatedUser.status_message;
+
+      // Se o servidor voltou zerado/incompleto mas temos dados locais robustos, significa que o servidor
+      // perdeu o estado (ex: após redeploy no Render) ou falhou ao persistir. Vamos restaurar de forma bidirecional!
+      const needsRestore = (
+        (localFavoritesCount > serverFavoritesCount) ||
+        (localReadBooksCount > serverReadBooksCount) ||
+        (localHasName && !serverHasName) ||
+        (localHasStatus && !serverHasStatus)
+      );
+
+      if (needsRestore) {
+        console.log("Detectado que o servidor perdeu estado do usuário. Restaurando a partir dos dados locais...");
+        try {
+          const syncRes = await fetch(`/api/users/${currentUser.id}/sync-restore`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: localUser.email,
+              name: localUser.name,
+              avatar: localUser.avatar,
+              status_message: localUser.status_message,
+              favorites: localUser.favorites || [],
+              read_books: localUser.read_books || [],
+              annotations: localUser.annotations || {}
+            })
+          });
+          
+          if (syncRes.ok) {
+            const syncData = await syncRes.json();
+            if (syncData.user) {
+              if (hasProfileDiff(userRef.current, syncData.user)) {
+                setUser(syncData.user);
+              }
+              localStorage.setItem("livraria_user", JSON.stringify(syncData.user));
+              return;
+            }
+          }
+        } catch (err) {
+          console.error("Falha ao restaurar dados locais no servidor:", err);
+        }
+      }
+
+      // Caso contrário ou se o restore falhar, aceitamos os dados do servidor se houver real diferença
+      if (hasProfileDiff(userRef.current, updatedUser)) {
+        setUser(updatedUser);
+        localStorage.setItem("livraria_user", JSON.stringify(updatedUser));
+      }
+    } catch (err) {
+      console.warn("Não foi possível carregar os dados mais recentes do perfil do servidor:", err);
+    }
+  };
+
   // Sincronizar dados do usuário salvos no localStorage com os dados em tempo real no servidor (para sincronia multi-dispositivo)
   useEffect(() => {
     if (user?.id) {
-      fetch(`/api/users/${user.id}/profile`)
-        .then(res => {
-          if (res.ok) return res.json();
-          throw new Error("Erro ao sincronizar dados mais recentes do perfil");
-        })
-        .then(async (updatedUser) => {
-          // Ler diretamente do localStorage para comparar e evitar re-render loop nas dependências do hook
-          const savedStr = localStorage.getItem("livraria_user");
-          if (!savedStr) {
-            setUser(updatedUser);
-            localStorage.setItem("livraria_user", JSON.stringify(updatedUser));
-            return;
-          }
+      // Sincronizar na carga inicial / login
+      syncProfileData();
 
-          const localUser = JSON.parse(savedStr);
-          const localFavoritesCount = localUser.favorites?.length || 0;
-          const localReadBooksCount = localUser.read_books?.length || 0;
-          const localHasName = !!localUser.name;
-          const localHasStatus = !!localUser.status_message;
+      // Sincronizar ao retornar o foco à aba/janela do navegador (tab-focus synchronization)
+      const handleFocus = () => {
+        syncProfileData();
+      };
+      window.addEventListener("focus", handleFocus);
 
-          const serverFavoritesCount = updatedUser.favorites?.length || 0;
-          const serverReadBooksCount = updatedUser.read_books?.length || 0;
-          const serverHasName = !!updatedUser.name;
-          const serverHasStatus = !!updatedUser.status_message;
+      // Sincronizar periodicamente em background a cada 10 segundos
+      const intervalId = setInterval(() => {
+        syncProfileData();
+      }, 10000);
 
-          // Se o servidor voltou zerado/incompleto mas temos dados locais robustos, significa que o servidor
-          // perdeu o estado (ex: após redeploy no Render) ou falhou ao persistir. Vamos restaurar de forma bidirecional!
-          const needsRestore = (
-            (localFavoritesCount > serverFavoritesCount) ||
-            (localReadBooksCount > serverReadBooksCount) ||
-            (localHasName && !serverHasName) ||
-            (localHasStatus && !serverHasStatus)
-          );
-
-          if (needsRestore) {
-            console.log("Detectado que o servidor perdeu estado do usuário. Restaurando a partir dos dados locais...");
-            try {
-              const syncRes = await fetch(`/api/users/${user.id}/sync-restore`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  email: localUser.email,
-                  name: localUser.name,
-                  avatar: localUser.avatar,
-                  status_message: localUser.status_message,
-                  favorites: localUser.favorites || [],
-                  read_books: localUser.read_books || [],
-                  annotations: localUser.annotations || {}
-                })
-              });
-              
-              if (syncRes.ok) {
-                const syncData = await syncRes.json();
-                if (syncData.user) {
-                  setUser(syncData.user);
-                  localStorage.setItem("livraria_user", JSON.stringify(syncData.user));
-                  return;
-                }
-              }
-            } catch (err) {
-              console.error("Falha ao restaurar dados locais no servidor:", err);
-            }
-          }
-
-          // Caso contrário ou se o restore falhar, aceitamos os dados do servidor
-          setUser(updatedUser);
-          localStorage.setItem("livraria_user", JSON.stringify(updatedUser));
-        })
-        .catch(err => {
-          console.warn("Não foi possível carregar os dados mais recentes do perfil do servidor:", err);
-        });
+      return () => {
+        window.removeEventListener("focus", handleFocus);
+        clearInterval(intervalId);
+      };
     }
   }, [user?.id]);
 
