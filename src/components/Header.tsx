@@ -9,6 +9,8 @@ interface HeaderProps {
   onLogout: () => void;
   showAdminPanel: boolean;
   onToggleAdminPanel: () => void;
+  showProfile: boolean;
+  onToggleProfile: () => void;
   theme: "light" | "dark";
   onToggleTheme: () => void;
 }
@@ -20,6 +22,8 @@ export default function Header({
   onLogout,
   showAdminPanel,
   onToggleAdminPanel,
+  showProfile,
+  onToggleProfile,
   theme,
   onToggleTheme,
 }: HeaderProps) {
@@ -29,7 +33,7 @@ export default function Header({
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
           
           {/* Logo */}
-          <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => { if(showAdminPanel) onToggleAdminPanel(); }}>
+          <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => { if(showAdminPanel) onToggleAdminPanel(); if(showProfile) onToggleProfile(); }}>
             <div className="bg-blue-600 p-2.5 rounded-xl text-white shadow-xs">
               <BookOpen className="w-6 h-6" />
             </div>
@@ -84,17 +88,55 @@ export default function Header({
               </button>
             )}
 
+            {/* Profile Button for Logged-in Users */}
+            {user && (
+              <button
+                onClick={onToggleProfile}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                  showProfile 
+                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-xs" 
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-150 dark:border-slate-700/60 hover:bg-slate-150 dark:hover:bg-slate-700"
+                }`}
+                title="Meu Perfil"
+              >
+                <User className="w-4 h-4" />
+                <span>{showProfile ? "Catálogo" : "Meu Perfil"}</span>
+              </button>
+            )}
+
             {/* Auth/User Actions */}
             {user ? (
               <div className="flex items-center gap-3 bg-gray-50 dark:bg-slate-800/50 py-1 pl-3.5 pr-1 rounded-xl border border-gray-200 dark:border-slate-700/60">
-                <div className="text-right">
-                  <span className="block text-xs font-medium text-slate-800 dark:text-slate-200">{user.email}</span>
-                  <span className={`inline-block text-[9px] font-mono font-bold leading-none py-0.5 px-1.5 rounded-sm uppercase tracking-wide ${
-                    user.role === "admin" ? "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-305" : "bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-305"
-                  }`}>
-                    {user.role === "admin" ? "Administrador" : "Leitor"}
-                  </span>
-                </div>
+                {user.name && user.avatar ? (
+                  <div className="flex items-center gap-2.5">
+                    <img 
+                      src={user.avatar} 
+                      alt={user.name} 
+                      className="w-8 h-8 rounded-full object-cover border border-blue-500 shadow-xs shrink-0" 
+                    />
+                    <div className="text-right">
+                      <span className="block text-xs font-semibold text-slate-850 dark:text-slate-100">{user.name}</span>
+                      <span className={`inline-block text-[9px] font-mono font-bold leading-none py-1 px-1.5 rounded border uppercase tracking-wide ${
+                        user.role === "admin" 
+                          ? "bg-amber-100/80 text-amber-900 border-amber-200/60 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-900/40" 
+                          : "bg-blue-100/80 text-blue-900 border-blue-200/60 dark:bg-blue-950/60 dark:text-blue-400 dark:border-blue-900/40"
+                      }`}>
+                        {user.role === "admin" ? "Administrador" : "Leitor"}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-right">
+                    <span className="block text-xs font-medium text-slate-800 dark:text-slate-200">{user.email}</span>
+                    <span className={`inline-block text-[9px] font-mono font-bold leading-none py-1 px-1.5 rounded border uppercase tracking-wide ${
+                      user.role === "admin" 
+                        ? "bg-amber-100/80 text-amber-900 border-amber-200/60 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-900/40" 
+                        : "bg-blue-100/80 text-blue-900 border-blue-200/60 dark:bg-blue-950/60 dark:text-blue-400 dark:border-blue-900/40"
+                    }`}>
+                      {user.role === "admin" ? "Administrador" : "Leitor"}
+                    </span>
+                  </div>
+                )}
                 <button
                   onClick={onLogout}
                   className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-850 text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-slate-200 p-2 rounded-lg cursor-pointer transition-all"

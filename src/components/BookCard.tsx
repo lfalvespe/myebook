@@ -1,17 +1,31 @@
 import React, { useState } from "react";
-import { Download, Book, Calendar, User, Eye, X, BookOpen } from "lucide-react";
+import { Download, Book, Calendar, User, Eye, X, BookOpen, Star, CheckCircle } from "lucide-react";
 import { Book as BookType } from "../types";
 
 interface BookCardProps {
   book: BookType;
   isLoggedIn: boolean;
   userRole?: 'admin' | 'user';
+  isFavorite?: boolean;
+  isRead?: boolean;
+  onToggleFavorite?: (bookId: string) => void;
+  onToggleRead?: (bookId: string) => void;
   onDownloadRequest: () => void;
   onUnauthorizedDownload?: () => void;
   key?: string;
 }
 
-export default function BookCard({ book, isLoggedIn, userRole, onDownloadRequest, onUnauthorizedDownload }: BookCardProps) {
+export default function BookCard({ 
+  book, 
+  isLoggedIn, 
+  userRole, 
+  isFavorite = false, 
+  isRead = false, 
+  onToggleFavorite, 
+  onToggleRead, 
+  onDownloadRequest, 
+  onUnauthorizedDownload 
+}: BookCardProps) {
   const [showSynopsisModal, setShowSynopsisModal] = useState(false);
 
   const handleDownload = () => {
@@ -35,7 +49,7 @@ export default function BookCard({ book, isLoggedIn, userRole, onDownloadRequest
   return (
     <div 
       id={`book-card-${book.id}`}
-      className="bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900 shadow-xs hover:shadow-sm transition-all duration-300 group flex flex-col h-full"
+      className="bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900 shadow-xs hover:shadow-sm transition-all duration-300 group flex flex-col h-full relative"
     >
       {/* Cover Image container */}
       <div 
@@ -63,6 +77,40 @@ export default function BookCard({ book, isLoggedIn, userRole, onDownloadRequest
         <span className="absolute top-3 left-3 bg-slate-900/80 dark:bg-slate-950/90 backdrop-blur-xs text-white text-[10px] font-semibold px-2.5 py-1 rounded-full uppercase tracking-wider font-sans">
           {book.genre}
         </span>
+
+        {/* Interactive Favorite & Read Toggles */}
+        {isLoggedIn && (
+          <div 
+            className="absolute top-3 right-3 flex items-center gap-1.5 z-10" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Favorite button */}
+            <button
+              onClick={() => onToggleFavorite?.(book.id)}
+              className={`p-1.5 rounded-full backdrop-blur-md shadow-xs border transition-colors cursor-pointer ${
+                isFavorite
+                  ? "bg-amber-500 text-white border-amber-400"
+                  : "bg-slate-950/60 text-slate-300 border-slate-700/60 hover:bg-slate-950 hover:text-white"
+              }`}
+              title={isFavorite ? "Remover dos favoritos" : "Marcar como favorito"}
+            >
+              <Star className={`w-3 h-3 ${isFavorite ? "fill-current text-white" : ""}`} />
+            </button>
+
+            {/* Read button */}
+            <button
+              onClick={() => onToggleRead?.(book.id)}
+              className={`p-1.5 rounded-full backdrop-blur-md shadow-xs border transition-colors cursor-pointer ${
+                isRead
+                  ? "bg-emerald-650 text-white border-emerald-500"
+                  : "bg-slate-950/60 text-slate-300 border-slate-700/60 hover:bg-slate-950 hover:text-white"
+              }`}
+              title={isRead ? "Marcar como não lido" : "Marcar como lido"}
+            >
+              <CheckCircle className={`w-3 h-3 ${isRead ? "fill-current text-white" : ""}`} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Book details */}

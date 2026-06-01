@@ -6,6 +6,7 @@ import BookCard from "./components/BookCard";
 import AuthModal from "./components/AuthModal";
 import AdminPanel from "./components/AdminPanel";
 import DashboardDocs from "./components/DashboardDocs";
+import ProfilePanel from "./components/ProfilePanel";
 
 export default function App() {
   const [user, setUser] = useState<UserProfile | null>(() => {
@@ -42,6 +43,7 @@ export default function App() {
   // UI states
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
   const [alertDownload, setAlertDownload] = useState(false);
   const [alertRoleDownload, setAlertRoleDownload] = useState(false);
@@ -88,7 +90,44 @@ export default function App() {
   const handleLogout = () => {
     setUser(null);
     setShowAdminPanel(false);
+    setShowProfile(false);
     localStorage.removeItem("livraria_user");
+  };
+
+  const handleToggleFavorite = async (bookId: string) => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/users/${user.id}/favorites/toggle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        localStorage.setItem("livraria_user", JSON.stringify(data.user));
+      }
+    } catch (err) {
+      console.error("Erro ao favoritar livro", err);
+    }
+  };
+
+  const handleToggleRead = async (bookId: string) => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/users/${user.id}/read/toggle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        localStorage.setItem("livraria_user", JSON.stringify(data.user));
+      }
+    } catch (err) {
+      console.error("Erro ao marcar livro como lido", err);
+    }
   };
 
   // Filter books inside the app based on query
@@ -131,6 +170,13 @@ export default function App() {
         showAdminPanel={showAdminPanel}
         onToggleAdminPanel={() => {
           setShowAdminPanel(!showAdminPanel);
+          if (showDocs) setShowDocs(false);
+          if (showProfile) setShowProfile(false);
+        }}
+        showProfile={showProfile}
+        onToggleProfile={() => {
+          setShowProfile(!showProfile);
+          if (showAdminPanel) setShowAdminPanel(false);
           if (showDocs) setShowDocs(false);
         }}
         theme={theme}
@@ -176,11 +222,16 @@ export default function App() {
           <AdminPanel onBookAdded={loadBooks} books={books} currentUser={user} onBackToHome={() => setShowAdminPanel(false)} />
         )}
 
+        {/* Toggleable Profile Panel */}
+        {showProfile && user && (
+          <ProfilePanel user={user} books={books} onBackToHome={() => setShowProfile(false)} onUpdateUser={(updated) => { setUser(updated); localStorage.setItem("livraria_user", JSON.stringify(updated)); }} />
+        )}
+
         {/* Toggleable Documentation / Comparison Panel */}
         {showDocs && <DashboardDocs />}
 
         {/* Standard Content Section */}
-        {!showAdminPanel && !showDocs && (
+        {!showAdminPanel && !showDocs && !showProfile && (
           <div className="space-y-8 animate-in fade-in duration-300">
             
             {/* Catalog Hero Stats bento */}
@@ -294,6 +345,10 @@ export default function App() {
                         book={book}
                         isLoggedIn={Boolean(user)}
                         userRole={user?.role}
+                        isFavorite={user?.favorites?.includes(book.id)}
+                        isRead={user?.read_books?.includes(book.id)}
+                        onToggleFavorite={handleToggleFavorite}
+                        onToggleRead={handleToggleRead}
                         onDownloadRequest={() => setAlertDownload(true)}
                         onUnauthorizedDownload={() => setAlertRoleDownload(true)}
                       />
@@ -317,6 +372,10 @@ export default function App() {
                               book={book}
                               isLoggedIn={Boolean(user)}
                               userRole={user?.role}
+                              isFavorite={user?.favorites?.includes(book.id)}
+                              isRead={user?.read_books?.includes(book.id)}
+                              onToggleFavorite={handleToggleFavorite}
+                              onToggleRead={handleToggleRead}
                               onDownloadRequest={() => setAlertDownload(true)}
                               onUnauthorizedDownload={() => setAlertRoleDownload(true)}
                             />
@@ -343,6 +402,10 @@ export default function App() {
                               book={book}
                               isLoggedIn={Boolean(user)}
                               userRole={user?.role}
+                              isFavorite={user?.favorites?.includes(book.id)}
+                              isRead={user?.read_books?.includes(book.id)}
+                              onToggleFavorite={handleToggleFavorite}
+                              onToggleRead={handleToggleRead}
                               onDownloadRequest={() => setAlertDownload(true)}
                               onUnauthorizedDownload={() => setAlertRoleDownload(true)}
                             />

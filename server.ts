@@ -1252,6 +1252,200 @@ async function startServer() {
   });
 
 
+  // --- USER PROFILE, FAVORITES AND READ LOGS ---
+
+  // Editar Perfil do Usuário (Nome, Avatar upload e Status Message)
+  app.put("/api/users/:id/profile", async (req, res) => {
+    const { id } = req.params;
+    let { name, avatar, status_message } = req.body;
+
+    try {
+      // Decodificar e salvar imagem se for base64
+      let avatarUrl = avatar;
+      if (avatar && avatar.startsWith("data:image/")) {
+        const matches = avatar.match(/^data:image\/([A-Za-z+]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
+          const base64Data = matches[2];
+          const buffer = Buffer.from(base64Data, "base64");
+          const filename = `profile-${id}-${Date.now()}.${ext}`;
+          const filePath = path.join(UPLOADS_DIR, filename);
+          fs.writeFileSync(filePath, buffer);
+          avatarUrl = `/uploads/${filename}`;
+        }
+      }
+
+      if (isSupabaseConfigured && supabase) {
+        const clientToUse = supabaseAdmin || supabase;
+        try {
+          await clientToUse
+            .from("user_profiles")
+            .update({ 
+              name, 
+              avatar: avatarUrl, 
+              status_message 
+            })
+            .eq("id", id);
+        } catch (supabaseErr) {
+          console.warn("Supabase profile update warning:", supabaseErr);
+        }
+      }
+
+      // Atualizar local database
+      const db = loadLocalDB();
+      const user = db.users.find(u => u.id === id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado." });
+      }
+
+      user.name = name;
+      user.avatar = avatarUrl;
+      user.status_message = status_message;
+
+      saveLocalDB(db);
+      return res.json({ success: true, user });
+    } catch (err: any) {
+      console.error("Erro ao atualizar perfil:", err);
+      return res.status(500).json({ error: err.message || "Erro interno ao atualizar perfil." });
+    }
+  });
+
+  // Alternar Favorito
+  app.post("/api/users/:id/favorites/toggle", async (req, res) => {
+    const { id } = req.params;
+    const { bookId } = req.body;
+
+    if (!bookId) {
+      return res.status(400).json({ error: "ID do livro é obrigatório." });
+    }
+
+    try {
+      const db = loadLocalDB();
+      const user = db.users.find(u => u.id === id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado." });
+      }
+
+      if (!user.favorites) {
+        user.favorites = [];
+      }
+
+      const idx = user.favorites.indexOf(bookId);
+      if (idx === -1) {
+        user.favorites.push(bookId);
+      } else {
+        user.favorites.splice(idx, 1);
+      }
+
+      saveLocalDB(db);
+
+      if (isSupabaseConfigured && supabase) {
+        const clientToUse = supabaseAdmin || supabase;
+        try {
+          await clientToUse
+            .from("user_profiles")
+            .update({ favorites: user.favorites })
+            .eq("id", id);
+        } catch (err) {
+          console.warn("Supabase favorites update warning:", err);
+        }
+      }
+
+      return res.json({ success: true, user });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Erro ao favoritar livro." });
+    }
+  });
+
+  // Alternar Marcado Como Lido
+  app.post("/api/users/:id/read/toggle", async (req, res) => {
+    const { id } = req.params;
+    const { bookId } = req.body;
+
+    if (!bookId) {
+      return res.status(400).json({ error: "ID do livro é obrigatório." });
+    }
+
+    try {
+      const db = loadLocalDB();
+      const user = db.users.find(u => u.id === id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado." });
+      }
+
+      if (!user.read_books) {
+        user.read_books = [];
+      }
+
+      const idx = user.read_books.indexOf(bookId);
+      if (idx === -1) {
+        user.read_books.push(bookId);
+      } else {
+        user.read_books.splice(idx, 1);
+      }
+
+      saveLocalDB(db);
+
+      if (isSupabaseConfigured && supabase) {
+        const clientToUse = supabaseAdmin || supabase;
+        try {
+          await clientToUse
+            .from("user_profiles")
+            .update({ read_books: user.read_books })
+            .eq("id", id);
+        } catch (err) {
+          console.warn("Supabase read_books update warning:", err);
+        }
+      }
+
+      return res.json({ success: true, user });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Erro ao marcar livro como lido." });
+    }
+  });
+
+  // Adicionar ou Atualizar Anotação para livro favorito
+  app.post("/api/users/:id/favorites/annotate", async (req, res) => {
+    const { id } = req.params;
+    const { bookId, note } = req.body;
+
+    if (!bookId) {
+      return res.status(400).json({ error: "ID do livro é obrigatório." });
+    }
+
+    try {
+      const db = loadLocalDB();
+      const user = db.users.find(u => u.id === id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado." });
+      }
+
+      if (!user.annotations) {
+        user.annotations = {};
+      }
+
+      user.annotations[bookId] = note || "";
+      saveLocalDB(db);
+
+      if (isSupabaseConfigured && supabase) {
+        const clientToUse = supabaseAdmin || supabase;
+        try {
+          await clientToUse
+            .from("user_profiles")
+            .update({ annotations: user.annotations })
+            .eq("id", id);
+        } catch (err) {
+          console.warn("Supabase annotations update warning:", err);
+        }
+      }
+
+      return res.json({ success: true, user });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Erro ao salvar anotação." });
+    }
+  });
+
+
   // --- VITE DEV OR PROD FRONTEND INTEGRATION ---
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

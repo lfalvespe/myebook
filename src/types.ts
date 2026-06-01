@@ -17,6 +17,12 @@ export interface UserProfile {
   status: 'active' | 'banned';
   must_change_password?: boolean;
   created_at?: string;
+  name?: string;
+  avatar?: string;
+  status_message?: string;
+  favorites?: string[]; // IDs of favorite books
+  read_books?: string[]; // IDs of read books
+  annotations?: Record<string, string>; // bookId -> annotation notes
 }
 
 export interface SupabaseConfigStatus {
