@@ -956,55 +956,55 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
 
           {/* Form to register a brand new user manually from admin view */}
           {showAddUserForm && (
-            <form onSubmit={handleCreateUser} className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4 animate-in slide-in-from-top-2 duration-300">
+            <form onSubmit={handleCreateUser} className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4 animate-in slide-in-from-top-2 duration-300">
               <div>
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Cadastrar Novo Usuário Manualmente
                 </h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Como administrador, você pode adicionar novas contas de usuário diretamente, sem necessidade de confirmação externa de e-mail.
                 </p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold text-slate-600">Endereço de E-mail:</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-350">Endereço de E-mail:</label>
                   <input
                     type="email"
                     required
                     value={newUserEmail}
                     onChange={(e) => setNewUserEmail(e.target.value)}
                     placeholder="exemplo@email.com"
-                    className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg py-2 px-3 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-550 focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold text-slate-600">Senha Provisória:</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-350">Senha Provisória:</label>
                   <input
                     type="password"
                     required
                     value={newUserPassword}
                     onChange={(e) => setNewUserPassword(e.target.value)}
                     placeholder="Mínimo 4 caracteres"
-                    className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg py-2 px-3 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-550 focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold text-slate-600">Tipo de Acesso (Função):</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-350">Tipo de Acesso (Função):</label>
                   <select
                     value={newUserRole}
                     onChange={(e) => setNewUserRole(e.target.value as "user" | "admin")}
-                    className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-blue-500 font-medium text-slate-700"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-blue-500 font-medium text-slate-700 dark:text-slate-350"
                   >
-                    <option value="user">User (Leitor comum)</option>
-                    <option value="admin">Admin (Administrador)</option>
+                    <option value="user" className="dark:bg-slate-950 dark:text-slate-100">User (Leitor comum)</option>
+                    <option value="admin" className="dark:bg-slate-950 dark:text-slate-100">Admin (Administrador)</option>
                   </select>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-1 border-t border-slate-100/60">
+              <div className="flex justify-end gap-2 pt-1 border-t border-slate-100/60 dark:border-slate-800/60">
                 <button
                   type="button"
                   onClick={() => {
@@ -1012,7 +1012,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                     setNewUserEmail("");
                     setNewUserPassword("");
                   }}
-                  className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 font-semibold py-1.5 px-3 rounded-lg text-[11px] transition-colors cursor-pointer"
+                  className="bg-white hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-semibold py-1.5 px-3 rounded-lg text-[11px] transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
