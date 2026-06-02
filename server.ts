@@ -159,20 +159,41 @@ async function ensureUserExistsLocal(db: LocalDatabase, id: string): Promise<Use
         .eq("id", id)
         .maybeSingle();
 
-      if (sbProfile) {
+      let meta: any = {};
+      if (supabaseAdmin) {
+        try {
+          const { data: authUserData, error: authUserErr } = await supabaseAdmin.auth.admin.getUserById(id);
+          if (!authUserErr && authUserData?.user) {
+            meta = authUserData.user.user_metadata || {};
+          }
+        } catch (authErr) {
+          console.warn("Erro ao buscar dados adicionais do Auth:", authErr);
+        }
+      }
+
+      if (sbProfile || meta) {
+        const nameValue = meta.name || (sbProfile ? sbProfile.name : "") || "";
+        const avatarValue = meta.avatar || (sbProfile ? sbProfile.avatar : "") || "";
+        const statusMessageValue = meta.status_message || (sbProfile ? sbProfile.status_message : "") || "";
+        const favoritesValue = meta.favorites || (sbProfile ? sbProfile.favorites : []) || [];
+        const readBooksValue = meta.read_books || (sbProfile ? sbProfile.read_books : []) || [];
+        const annotationsValue = meta.annotations || (sbProfile ? sbProfile.annotations : {}) || {};
+        const roleValue = (sbProfile ? sbProfile.role : null) || meta.role || "user";
+        const statusValue = (sbProfile ? sbProfile.status : null) || "active";
+
         user = {
-          id: sbProfile.id,
-          email: sbProfile.email || "",
-          role: (sbProfile.role as "admin" | "user") || "user",
-          status: (sbProfile.status as "active" | "banned") || "active",
-          name: sbProfile.name || "",
-          avatar: sbProfile.avatar || "",
-          status_message: sbProfile.status_message || "",
-          favorites: sbProfile.favorites || [],
-          read_books: sbProfile.read_books || [],
-          annotations: sbProfile.annotations || {},
-          must_change_password: sbProfile.must_change_password || false,
-          created_at: sbProfile.created_at || new Date().toISOString()
+          id,
+          email: (sbProfile ? sbProfile.email : null) || meta.email || "",
+          role: roleValue as "admin" | "user",
+          status: statusValue as "active" | "banned",
+          name: nameValue,
+          avatar: avatarValue,
+          status_message: statusMessageValue,
+          favorites: favoritesValue,
+          read_books: readBooksValue,
+          annotations: annotationsValue,
+          must_change_password: sbProfile ? sbProfile.must_change_password : false,
+          created_at: (sbProfile ? sbProfile.created_at : null) || new Date().toISOString()
         };
         db.users.push(user);
         saveLocalDB(db);
@@ -182,6 +203,26 @@ async function ensureUserExistsLocal(db: LocalDatabase, id: string): Promise<Use
     }
   }
   return user;
+}
+
+async function saveUserMetadataToSupabase(id: string, user: any) {
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      await supabaseAdmin.auth.admin.updateUserById(id, {
+        user_metadata: {
+          name: user.name || "",
+          avatar: user.avatar || "",
+          status_message: user.status_message || "",
+          favorites: user.favorites || [],
+          read_books: user.read_books || [],
+          annotations: user.annotations || {}
+        }
+      });
+      console.log(`[SUPABASE BACKUP] Metadados salvos persistente para o usuário ${id}`);
+    } catch (err) {
+      console.warn(`Erro ao salvar metadados do usuário ${id} no Supabase:`, err);
+    }
+  }
 }
 
 async function startServer() {
@@ -270,40 +311,61 @@ async function startServer() {
           .from("user_profiles")
           .select("*")
           .eq("id", authUser.id)
-          .single();
+          .maybeSingle();
+
+        let meta: any = {};
+        if (supabaseAdmin) {
+          try {
+            const { data: authUserData, error: authUserErr } = await supabaseAdmin.auth.admin.getUserById(authUser.id);
+            if (!authUserErr && authUserData?.user) {
+              meta = authUserData.user.user_metadata || {};
+            }
+          } catch (metaErr) {
+            console.warn("Erro ao ler metadados no login:", metaErr);
+          }
+        } else {
+          meta = authUser.user_metadata || {};
+        }
+
+        const nameValue = meta.name || (profile ? profile.name : "") || "";
+        const avatarValue = meta.avatar || (profile ? profile.avatar : "") || "";
+        const statusMessageValue = meta.status_message || (profile ? profile.status_message : "") || "";
+        const favoritesValue = meta.favorites || (profile ? profile.favorites : []) || [];
+        const readBooksValue = meta.read_books || (profile ? profile.read_books : []) || [];
+        const annotationsValue = meta.annotations || (profile ? profile.annotations : {}) || {};
 
         let profileData: UserProfile = {
           id: authUser.id,
           email: authUser.email || email,
-          role: "user",
-          status: "active"
+          role: (profile?.role as "admin" | "user") || meta.role || "user",
+          status: (profile?.status as "active" | "banned") || "active",
+          name: nameValue,
+          avatar: avatarValue,
+          status_message: statusMessageValue,
+          favorites: favoritesValue,
+          read_books: readBooksValue,
+          annotations: annotationsValue,
+          created_at: profile?.created_at || authUser.created_at || new Date().toISOString(),
+          must_change_password: profile ? profile.must_change_password : false
         };
 
-        if (profileErr || !profile) {
-          // Se não existir perfil configurado na tabela (devido à falta de trigger), cria um perfil de usuário padrão
-          const newProfile: UserProfile = { 
+        if (profileErr) {
+          console.error("Erro ao carregar perfil do Supabase no login:", profileErr);
+        } else if (!profile) {
+          // Se não existir perfil configurado na tabela (devido à falta de trigger), cria um perfil de usuário padrão (apenas se realmente não existir)
+          console.log(`Perfil da tabela user_profiles não encontrado para ${authUser.id}. Criando...`);
+          const newProfile = { 
             id: authUser.id, 
             email: authUser.email || email, 
-            role: "user" as const, 
-            status: "active" as const 
+            role: "user", 
+            status: "active" 
           };
-          await clientToUse.from("user_profiles").upsert([newProfile]).select().single();
-          profileData = newProfile;
-        } else {
-          profileData = {
-            id: profile.id,
-            email: profile.email,
-            role: profile.role as "admin" | "user",
-            status: profile.status as "active" | "banned",
-            name: profile.name || "",
-            avatar: profile.avatar || "",
-            status_message: profile.status_message || "",
-            favorites: profile.favorites || [],
-            read_books: profile.read_books || [],
-            annotations: profile.annotations || {},
-            created_at: profile.created_at,
-            must_change_password: profile.must_change_password
-          };
+          try {
+            // Usar insert em vez de upsert para evitar sobrescrever acidentalmente dados existentes
+            await clientToUse.from("user_profiles").insert([newProfile]);
+          } catch (insErr) {
+            console.warn("Aviso ao inserir novo perfil:", insErr);
+          }
         }
 
         if (profileData.status === "banned") {
@@ -1322,32 +1384,54 @@ async function startServer() {
             .eq("id", id)
             .maybeSingle();
 
-          if (sbProfile) {
+          let meta: any = {};
+          if (supabaseAdmin) {
+            try {
+              const { data: authUserData, error: authUserErr } = await supabaseAdmin.auth.admin.getUserById(id);
+              if (!authUserErr && authUserData?.user) {
+                meta = authUserData.user.user_metadata || {};
+              }
+            } catch (authErr) {
+              console.warn("Erro ao ler metadata no GET profile:", authErr);
+            }
+          }
+
+          if (sbProfile || meta) {
             let user = db.users.find(u => u.id === id);
+            
+            const nameValue = meta.name || (sbProfile ? sbProfile.name : "") || "";
+            const avatarValue = meta.avatar || (sbProfile ? sbProfile.avatar : "") || "";
+            const statusMessageValue = meta.status_message || (sbProfile ? sbProfile.status_message : "") || "";
+            const favoritesValue = meta.favorites || (sbProfile ? sbProfile.favorites : []) || [];
+            const readBooksValue = meta.read_books || (sbProfile ? sbProfile.read_books : []) || [];
+            const annotationsValue = meta.annotations || (sbProfile ? sbProfile.annotations : {}) || {};
+            const roleValue = (sbProfile ? sbProfile.role : null) || meta.role || "user";
+            const statusValue = (sbProfile ? sbProfile.status : null) || "active";
+
             if (user) {
-              // Atualizar no banco local com os dados mais recentes do Supabase
-              user.name = sbProfile.name || user.name || "";
-              user.avatar = sbProfile.avatar || user.avatar || "";
-              user.status_message = sbProfile.status_message || user.status_message || "";
-              user.favorites = sbProfile.favorites || user.favorites || [];
-              user.read_books = sbProfile.read_books || user.read_books || [];
-              user.annotations = sbProfile.annotations || user.annotations || {};
-              user.role = (sbProfile.role as "admin" | "user") || user.role || "user";
-              user.status = (sbProfile.status as "active" | "banned") || user.status || "active";
+              // Atualizar no banco local com os dados mais recentes do Supabase/Auth Meta
+              user.name = nameValue;
+              user.avatar = avatarValue;
+              user.status_message = statusMessageValue;
+              user.favorites = favoritesValue;
+              user.read_books = readBooksValue;
+              user.annotations = annotationsValue;
+              user.role = roleValue as "admin" | "user";
+              user.status = statusValue as "active" | "banned";
             } else {
               user = {
-                id: sbProfile.id,
-                email: sbProfile.email || "",
-                role: (sbProfile.role as "admin" | "user") || "user",
-                status: (sbProfile.status as "active" | "banned") || "active",
-                name: sbProfile.name || "",
-                avatar: sbProfile.avatar || "",
-                status_message: sbProfile.status_message || "",
-                favorites: sbProfile.favorites || [],
-                read_books: sbProfile.read_books || [],
-                annotations: sbProfile.annotations || {},
-                must_change_password: sbProfile.must_change_password || false,
-                created_at: sbProfile.created_at || new Date().toISOString()
+                id,
+                email: (sbProfile ? sbProfile.email : null) || meta.email || "",
+                role: roleValue as "admin" | "user",
+                status: statusValue as "active" | "banned",
+                name: nameValue,
+                avatar: avatarValue,
+                status_message: statusMessageValue,
+                favorites: favoritesValue,
+                read_books: readBooksValue,
+                annotations: annotationsValue,
+                must_change_password: sbProfile ? sbProfile.must_change_password : false,
+                created_at: (sbProfile ? sbProfile.created_at : null) || new Date().toISOString()
               };
               db.users.push(user);
             }
@@ -1408,7 +1492,10 @@ async function startServer() {
 
       saveLocalDB(db);
 
-      // Também persistimos no Supabase se configurado
+      // Também persistimos de forma ultra robusta nos metadados do auth do Supabase
+      await saveUserMetadataToSupabase(id, user);
+
+      // Também persistimos na tabela customizada se configurada (ignora erro se colunas não existirem)
       if (isSupabaseConfigured && supabase) {
         const clientToUse = supabaseAdmin || supabase;
         try {
@@ -1424,7 +1511,7 @@ async function startServer() {
             })
             .eq("id", id);
         } catch (supabaseErr) {
-          console.warn("Supabase backup sync-restore warning:", supabaseErr);
+          console.warn("Supabase backup sync-restore warning (ignorado):", supabaseErr);
         }
       }
 
@@ -1461,6 +1548,22 @@ async function startServer() {
         }
       }
 
+      // Atualizar local database primeiro para termos o objeto completo antes do backup
+      const db = loadLocalDB();
+      const user = await ensureUserExistsLocal(db, id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado." });
+      }
+
+      user.name = name;
+      user.avatar = avatarUrl;
+      user.status_message = status_message;
+      saveLocalDB(db);
+
+      // Salvar de forma ultra robusta nos metadados do Auth no Supabase
+      await saveUserMetadataToSupabase(id, user);
+
+      // Também tentamos salvar na tabela de perfil customizada (para retrocompatibilidade)
       if (isSupabaseConfigured && supabase) {
         const clientToUse = supabaseAdmin || supabase;
         try {
@@ -1473,22 +1576,10 @@ async function startServer() {
             })
             .eq("id", id);
         } catch (supabaseErr) {
-          console.warn("Supabase profile update warning:", supabaseErr);
+          console.warn("Supabase profile update warning (ignorado):", supabaseErr);
         }
       }
 
-      // Atualizar local database
-      const db = loadLocalDB();
-      const user = await ensureUserExistsLocal(db, id);
-      if (!user) {
-        return res.status(404).json({ error: "Usuário não encontrado." });
-      }
-
-      user.name = name;
-      user.avatar = avatarUrl;
-      user.status_message = status_message;
-
-      saveLocalDB(db);
       return res.json({ success: true, user });
     } catch (err: any) {
       console.error("Erro ao atualizar perfil:", err);
@@ -1525,6 +1616,10 @@ async function startServer() {
 
       saveLocalDB(db);
 
+      // Salvar nos metadados do auth (Supabase backup persistente)
+      await saveUserMetadataToSupabase(id, user);
+
+      // Registrar na tabela de perfil (para retrocompatibilidade, ignora erros se colunas faltarem)
       if (isSupabaseConfigured && supabase) {
         const clientToUse = supabaseAdmin || supabase;
         try {
@@ -1533,7 +1628,7 @@ async function startServer() {
             .update({ favorites: user.favorites })
             .eq("id", id);
         } catch (err) {
-          console.warn("Supabase favorites update warning:", err);
+          console.warn("Supabase favorites update warning (ignorado):", err);
         }
       }
 
@@ -1572,6 +1667,10 @@ async function startServer() {
 
       saveLocalDB(db);
 
+      // Salvar nos metadados do auth (Supabase backup persistente)
+      await saveUserMetadataToSupabase(id, user);
+
+      // Registrar na tabela de perfil (para retrocompatibilidade, ignora erros se colunas faltarem)
       if (isSupabaseConfigured && supabase) {
         const clientToUse = supabaseAdmin || supabase;
         try {
@@ -1580,7 +1679,7 @@ async function startServer() {
             .update({ read_books: user.read_books })
             .eq("id", id);
         } catch (err) {
-          console.warn("Supabase read_books update warning:", err);
+          console.warn("Supabase read_books update warning (ignorado):", err);
         }
       }
 
@@ -1613,6 +1712,10 @@ async function startServer() {
       user.annotations[bookId] = note || "";
       saveLocalDB(db);
 
+      // Salvar nos metadados do auth (Supabase backup persistente)
+      await saveUserMetadataToSupabase(id, user);
+
+      // Registrar na tabela de perfil (para retrocompatibilidade, ignora erros se colunas faltarem)
       if (isSupabaseConfigured && supabase) {
         const clientToUse = supabaseAdmin || supabase;
         try {
@@ -1621,7 +1724,7 @@ async function startServer() {
             .update({ annotations: user.annotations })
             .eq("id", id);
         } catch (err) {
-          console.warn("Supabase annotations update warning:", err);
+          console.warn("Supabase annotations update warning (ignorado):", err);
         }
       }
 
