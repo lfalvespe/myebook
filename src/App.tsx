@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Filter, BookOpen, Layers, User as UserIcon, BookDown, AlertCircle, Database, HelpCircle, LayoutGrid, Layers3, FlameKindling } from "lucide-react";
+import { Search, Filter, BookOpen, Layers, User as UserIcon, BookDown, AlertCircle, Database, HelpCircle, LayoutGrid, Layers3, FlameKindling, ChevronLeft, ChevronRight } from "lucide-react";
 import { Book, UserProfile, SupabaseConfigStatus } from "./types";
 import Header from "./components/Header";
 import BookCard from "./components/BookCard";
@@ -40,6 +40,17 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewGroupBy, setViewGroupBy] = useState<"none" | "genre" | "author">("none");
   const [activeTabGenre, setActiveTabGenre] = useState<string>("Todos");
+
+  // Pagination & limits for books
+  const [galleryPage, setGalleryPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [expandedGenres, setExpandedGenres] = useState<Record<string, boolean>>({});
+  const [expandedAuthors, setExpandedAuthors] = useState<Record<string, boolean>>({});
+
+  // Reset page when search term or groups change
+  useEffect(() => {
+    setGalleryPage(1);
+  }, [searchQuery, viewGroupBy, itemsPerPage]);
   
   // UI states
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -275,6 +286,12 @@ export default function App() {
     );
   });
 
+  // Paginated books calculations
+  const totalFiltered = filteredBooks.length;
+  const startIndex = (galleryPage - 1) * itemsPerPage;
+  const paginatedBooks = filteredBooks.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.ceil(totalFiltered / itemsPerPage);
+
   // Calculate stats
   const totalBooksCount = books.length;
   const genresSet = Array.from(new Set(books.map(b => b.genre)));
@@ -473,81 +490,209 @@ export default function App() {
                 
                 {/* Mode A: Standard Gallery (No grouping) */}
                 {viewGroupBy === "none" && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6" id="no-grouping-grid">
-                    {filteredBooks.map((book) => (
-                      <BookCard
-                        key={book.id}
-                        book={book}
-                        isLoggedIn={Boolean(user)}
-                        userRole={user?.role}
-                        isFavorite={user?.favorites?.includes(book.id)}
-                        isRead={user?.read_books?.includes(book.id)}
-                        onToggleFavorite={handleToggleFavorite}
-                        onToggleRead={handleToggleRead}
-                        onDownloadRequest={() => setAlertDownload(true)}
-                        onUnauthorizedDownload={() => setAlertRoleDownload(true)}
-                      />
-                    ))}
+                  <div className="space-y-8" id="no-grouping-wrapper">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6" id="no-grouping-grid">
+                      {paginatedBooks.map((book) => (
+                        <BookCard
+                          key={book.id}
+                          book={book}
+                          isLoggedIn={Boolean(user)}
+                          userRole={user?.role}
+                          isFavorite={user?.favorites?.includes(book.id)}
+                          isRead={user?.read_books?.includes(book.id)}
+                          onToggleFavorite={handleToggleFavorite}
+                          onToggleRead={handleToggleRead}
+                          onDownloadRequest={() => setAlertDownload(true)}
+                          onUnauthorizedDownload={() => setAlertRoleDownload(true)}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalFiltered > 0 && (
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-slate-200 dark:border-slate-800/80" id="gallery-pagination">
+                        {/* Summary / Stats info */}
+                        <div className="text-xs text-slate-500 dark:text-slate-400 font-medium font-sans">
+                          Exibindo <span className="font-semibold text-slate-800 dark:text-slate-200">{Math.min(startIndex + 1, totalFiltered)}</span> a{" "}
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{Math.min(startIndex + itemsPerPage, totalFiltered)}</span> de{" "}
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{totalFiltered}</span> livros
+                        </div>
+
+                        {/* Pagination Selector buttons */}
+                        {totalPages > 1 && (
+                          <div className="flex items-center gap-1.5" id="page-num-selectors">
+                            <button
+                              onClick={() => setGalleryPage(prev => Math.max(prev - 1, 1))}
+                              disabled={galleryPage === 1}
+                              className="p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-600 dark:text-slate-400 disabled:opacity-55 disabled:pointer-events-none transition-colors cursor-pointer"
+                              title="Página Anterior"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+
+                            {Array.from({ length: totalPages }).map((_, idx) => {
+                              const pageNum = idx + 1;
+                              const isCurrent = pageNum === galleryPage;
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setGalleryPage(pageNum)}
+                                  className={`w-8 h-8 rounded-lg text-xs font-semibold font-mono tracking-tight transition-all cursor-pointer flex items-center justify-center border ${
+                                    isCurrent
+                                      ? "bg-blue-600 border-blue-600 text-white shadow-xs"
+                                      : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-750 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-850"
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            })}
+
+                            <button
+                              onClick={() => setGalleryPage(prev => Math.min(prev + 1, totalPages))}
+                              disabled={galleryPage === totalPages}
+                              className="p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-600 dark:text-slate-400 disabled:opacity-55 disabled:pointer-events-none transition-colors cursor-pointer"
+                              title="Próxima Página"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Page Size Selector */}
+                        <div className="flex items-center gap-2" id="page-size-selector">
+                          <span className="text-[11px] text-slate-450 dark:text-slate-450 font-medium uppercase tracking-wider">Itens por página:</span>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                            className="bg-white dark:bg-slate-900 border border-slate-205 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg py-1 px-2 text-xs focus:outline-none focus:border-blue-500 cursor-pointer font-semibold"
+                          >
+                            <option value={8}>8</option>
+                            <option value={12}>12 (Padrão)</option>
+                            <option value={24}>24</option>
+                            <option value={48}>48</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Mode B: Grouped By Genre */}
                 {viewGroupBy === "genre" && (
                    <div className="space-y-10" id="grouped-by-genre-container">
-                    {(Object.entries(groupedByGenre) as [string, Book[]][]).map(([genreName, bookList]) => (
-                      <div key={genreName} className="space-y-4" id={`genre-section-${genreName}`}>
-                        <div className="flex items-center gap-3 border-b border-gray-100 dark:border-slate-800 pb-2">
-                          <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-100 dark:border-blue-900/50 text-xs font-bold uppercase py-0.5 px-2 rounded font-mono">{bookList.length}</span>
-                          <h3 className="text-lg font-sans font-bold text-slate-800 dark:text-slate-150 tracking-tight">Obras de <span className="text-blue-600 dark:text-blue-400">{genreName}</span></h3>
+                    {(Object.entries(groupedByGenre) as [string, Book[]][]).map(([genreName, bookList]) => {
+                      const isExpanded = expandedGenres[genreName];
+                      const limit = 4;
+                      const hasMore = bookList.length > limit;
+                      const displayedBooks = isExpanded ? bookList : bookList.slice(0, limit);
+
+                      return (
+                        <div key={genreName} className="space-y-4 animate-in duration-300" id={`genre-section-${genreName}`}>
+                          <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-2">
+                            <div className="flex items-center gap-3">
+                              <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-100 dark:border-blue-900/50 text-xs font-bold uppercase py-0.5 px-2 rounded font-mono">{bookList.length}</span>
+                              <h3 className="text-lg font-sans font-bold text-slate-800 dark:text-slate-150 tracking-tight">Obras de <span className="text-blue-600 dark:text-blue-400">{genreName}</span></h3>
+                            </div>
+                            {hasMore && (
+                              <button
+                                onClick={() => setExpandedGenres(prev => ({ ...prev, [genreName]: !prev[genreName] }))}
+                                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 cursor-pointer hover:underline"
+                              >
+                                {isExpanded ? "Mostrar menos" : `Ver todos os ${bookList.length} livros`}
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+                            {displayedBooks.map((book) => (
+                              <BookCard
+                                key={book.id}
+                                book={book}
+                                isLoggedIn={Boolean(user)}
+                                userRole={user?.role}
+                                isFavorite={user?.favorites?.includes(book.id)}
+                                isRead={user?.read_books?.includes(book.id)}
+                                onToggleFavorite={handleToggleFavorite}
+                                onToggleRead={handleToggleRead}
+                                onDownloadRequest={() => setAlertDownload(true)}
+                                onUnauthorizedDownload={() => setAlertRoleDownload(true)}
+                              />
+                            ))}
+                          </div>
+                          
+                          {/* Sleek bottom card expander button */}
+                          {hasMore && !isExpanded && (
+                            <div className="flex justify-center pt-2">
+                              <button
+                                onClick={() => setExpandedGenres(prev => ({ ...prev, [genreName]: true }))}
+                                className="text-xs bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-800 hover:border-slate-300 rounded-lg py-2 px-6 font-semibold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                              >
+                                Ver mais {bookList.length - limit} livros de {genreName}
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-                          {bookList.map((book) => (
-                            <BookCard
-                              key={book.id}
-                              book={book}
-                              isLoggedIn={Boolean(user)}
-                              userRole={user?.role}
-                              isFavorite={user?.favorites?.includes(book.id)}
-                              isRead={user?.read_books?.includes(book.id)}
-                              onToggleFavorite={handleToggleFavorite}
-                              onToggleRead={handleToggleRead}
-                              onDownloadRequest={() => setAlertDownload(true)}
-                              onUnauthorizedDownload={() => setAlertRoleDownload(true)}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
                 {/* Mode C: Grouped By Author */}
                 {viewGroupBy === "author" && (
                    <div className="space-y-10" id="grouped-by-author-container">
-                    {(Object.entries(groupedByAuthor) as [string, Book[]][]).map(([authorName, bookList]) => (
-                      <div key={authorName} className="space-y-4" id={`author-section-${authorName}`}>
-                        <div className="flex items-center gap-2 border-b border-gray-100 dark:border-slate-800 pb-2">
-                          <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-100 dark:border-blue-900/50 text-xs font-bold uppercase py-0.5 px-2 rounded font-mono">{bookList.length}</span>
-                          <h3 className="text-lg font-sans font-bold text-slate-800 dark:text-slate-150 tracking-tight">Obras de <span className="text-blue-600 dark:text-blue-400">{authorName}</span></h3>
+                    {(Object.entries(groupedByAuthor) as [string, Book[]][]).map(([authorName, bookList]) => {
+                      const isExpanded = expandedAuthors[authorName];
+                      const limit = 4;
+                      const hasMore = bookList.length > limit;
+                      const displayedBooks = isExpanded ? bookList : bookList.slice(0, limit);
+
+                      return (
+                        <div key={authorName} className="space-y-4 animate-in duration-300" id={`author-section-${authorName}`}>
+                          <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-2">
+                            <div className="flex items-center gap-3">
+                              <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-100 dark:border-blue-900/50 text-xs font-bold uppercase py-0.5 px-2 rounded font-mono">{bookList.length}</span>
+                              <h3 className="text-lg font-sans font-bold text-slate-800 dark:text-slate-150 tracking-tight font-sans">Obras de <span className="text-blue-600 dark:text-blue-400">{authorName}</span></h3>
+                            </div>
+                            {hasMore && (
+                              <button
+                                onClick={() => setExpandedAuthors(prev => ({ ...prev, [authorName]: !prev[authorName] }))}
+                                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 cursor-pointer hover:underline"
+                              >
+                                {isExpanded ? "Mostrar menos" : `Ver todos os ${bookList.length} livros`}
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+                            {displayedBooks.map((book) => (
+                              <BookCard
+                                key={book.id}
+                                book={book}
+                                isLoggedIn={Boolean(user)}
+                                userRole={user?.role}
+                                isFavorite={user?.favorites?.includes(book.id)}
+                                isRead={user?.read_books?.includes(book.id)}
+                                onToggleFavorite={handleToggleFavorite}
+                                onToggleRead={handleToggleRead}
+                                onDownloadRequest={() => setAlertDownload(true)}
+                                onUnauthorizedDownload={() => setAlertRoleDownload(true)}
+                              />
+                            ))}
+                          </div>
+
+                          {/* Sleek bottom card expander button */}
+                          {hasMore && !isExpanded && (
+                            <div className="flex justify-center pt-2">
+                              <button
+                                onClick={() => setExpandedAuthors(prev => ({ ...prev, [authorName]: true }))}
+                                className="text-xs bg-slate-100/80 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-800 hover:border-slate-300 rounded-lg py-2 px-6 font-semibold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                              >
+                                Ver mais {bookList.length - limit} livros por {authorName}
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-                          {bookList.map((book) => (
-                            <BookCard
-                              key={book.id}
-                              book={book}
-                              isLoggedIn={Boolean(user)}
-                              userRole={user?.role}
-                              isFavorite={user?.favorites?.includes(book.id)}
-                              isRead={user?.read_books?.includes(book.id)}
-                              onToggleFavorite={handleToggleFavorite}
-                              onToggleRead={handleToggleRead}
-                              onDownloadRequest={() => setAlertDownload(true)}
-                              onUnauthorizedDownload={() => setAlertRoleDownload(true)}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
