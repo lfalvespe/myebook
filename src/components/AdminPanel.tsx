@@ -1041,30 +1041,34 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
               {usersError}
             </div>
           ) : (
-            <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+            <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-2xl">
               <table className="w-full table-auto text-left text-sm">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase">
+                  <tr className="bg-slate-50 dark:bg-slate-950/45 border-b border-slate-100 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
                     <th className="py-3 px-4">Email</th>
                     <th className="py-3 px-4">Acesso (Role)</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4 text-right">Ações de Gerência</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
                   {users.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50/50">
-                      <td className="py-3.5 px-4 font-mono text-xs">{row.email}</td>
+                    <tr key={row.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                      <td className="py-3.5 px-4 font-mono text-xs text-slate-800 dark:text-slate-100">{row.email}</td>
                       <td className="py-3.5 px-4">
                         <span className={`inline-flex items-center gap-1 text-xs py-0.5 px-2 rounded-md font-medium ${
-                          row.role === "admin" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-800"
+                          row.role === "admin" 
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300" 
+                            : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
                         }`}>
                           {row.role === "admin" ? "Admin" : "User (Leitor)"}
                         </span>
                       </td>
                       <td className="py-3.5 px-4">
                         <span className={`inline-flex items-center gap-1 text-xs py-0.5 px-2 rounded-md font-medium ${
-                          row.status === "banned" ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+                          row.status === "banned" 
+                            ? "bg-rose-100 text-rose-800 dark:bg-rose-950/30 dark:text-rose-350" 
+                            : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-355"
                         }`}>
                           {row.status === "banned" ? "Banido" : "Ativo"}
                         </span>
@@ -1073,7 +1077,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                         {/* Reset Password Button */}
                         <button
                           onClick={() => openPasswordModal(row.id, row.email)}
-                          className="p-1 px-1.5 rounded-md border border-slate-200 hover:bg-slate-100 hover:text-slate-900 text-slate-500 transition-colors inline-flex items-center gap-1 text-[11px] font-medium cursor-pointer"
+                          className="p-1 px-1.5 rounded-md border border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors inline-flex items-center gap-1 text-[11px] font-medium cursor-pointer"
                           title="Redefinir senha de segurança"
                         >
                           <Key className="w-3.5 h-3.5" />
@@ -1085,8 +1089,8 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                           onClick={() => toggleBanStatus(row.id, row.status)}
                           className={`p-1 px-1.5 rounded-md border text-[11px] font-medium transition-colors inline-flex items-center gap-1 cursor-pointer ${
                             row.status === "banned" 
-                              ? "bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800"
-                              : "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-800"
+                              ? "bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800 dark:bg-blue-950 dark:hover:bg-blue-900 dark:border-blue-800 dark:text-blue-300"
+                              : "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-800 dark:bg-rose-955/30 dark:hover:bg-rose-900 dark:border-rose-900 dark:text-rose-300"
                           }`}
                           title={row.status === "banned" ? "Ativar conta" : "Banir conta do site"}
                         >
@@ -1097,7 +1101,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                         {/* Role Swap Button */}
                         <button
                           onClick={() => toggleUserRole(row.id, row.role)}
-                          className="p-1 px-1.5 rounded-md border border-slate-200 hover:bg-slate-100 text-slate-600 text-[11px] font-medium transition-colors inline-flex items-center gap-1 cursor-pointer"
+                          className="p-1 px-1.5 rounded-md border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors inline-flex items-center gap-1 text-[11px] font-medium cursor-pointer"
                           title="Alternar cargo administrativo"
                         >
                           <UserCheck className="w-3.5 h-3.5" />
@@ -1106,8 +1110,8 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
 
                         {/* Delete account permanently */}
                         {deletingUserId === row.id ? (
-                          <div className="inline-flex items-center gap-1 bg-rose-100 border border-rose-300 p-1 rounded-md text-[11px] leading-none">
-                            <span className="font-semibold text-rose-800 px-1 select-none">Excluir?</span>
+                          <div className="inline-flex items-center gap-1 bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-900 p-1 rounded-md text-[11px] leading-none">
+                            <span className="font-semibold text-rose-800 dark:text-rose-200 px-1 select-none">Excluir?</span>
                             <button
                               onClick={() => confirmDeleteUser(row.id)}
                               className="bg-rose-600 hover:bg-rose-700 text-white font-semibold py-0.5 px-1.5 rounded-md transition-colors cursor-pointer"
@@ -1116,7 +1120,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                             </button>
                             <button
                               onClick={() => setDeletingUserId(null)}
-                              className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-0.5 px-1 rounded-md transition-colors cursor-pointer"
+                              className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold py-0.5 px-1 rounded-md transition-colors cursor-pointer"
                             >
                               Não
                             </button>
@@ -1124,7 +1128,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                         ) : (
                           <button
                             onClick={() => startDeleteUser(row.id)}
-                            className="p-1 rounded-md border border-rose-100 bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors inline-flex items-center p-1.5 cursor-pointer"
+                            className="p-1 rounded-md border border-rose-100 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900 text-rose-600 dark:text-rose-400 transition-colors inline-flex items-center p-1.5 cursor-pointer"
                             title="Excluir conta permanentemente"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1135,7 +1139,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                   ))}
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="text-center py-8 text-xs text-slate-400">Nenhum outro usuário registrado.</td>
+                      <td colSpan={4} className="text-center py-8 text-xs text-slate-400 dark:text-slate-500">Nenhum outro usuário registrado.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1145,13 +1149,13 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
 
           {/* Inline Change Password Drawer */}
           {modUserId && (
-            <div className="bg-slate-50 border border-gray-200 rounded-lg p-5 flex flex-col md:flex-row md:items-end gap-4 animate-in slide-in-from-bottom-2">
+            <div className="bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg p-5 flex flex-col md:flex-row md:items-end gap-4 animate-in slide-in-from-bottom-2">
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1">
-                    Nova Senha de Segurança para: <span className="text-blue-750 font-mono bg-blue-50 px-1.5 rounded ml-1 lowercase">{modUserEmail}</span>
+                  <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1">
+                    Nova Senha de Segurança para: <span className="text-blue-750 dark:text-blue-300 font-mono bg-blue-50 dark:bg-blue-955/40 px-1.5 rounded ml-1 lowercase">{modUserEmail}</span>
                   </h4>
-                  <button onClick={() => setModUserId(null)} className="text-slate-400 hover:text-slate-600">
+                  <button onClick={() => setModUserId(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -1160,7 +1164,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Informe a nova senha (min. 4 caracteres)"
-                  className="w-full bg-white border border-gray-200 rounded-lg py-2 px-4 text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg py-2 px-4 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
               </div>
               <button
