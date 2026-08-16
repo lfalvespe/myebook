@@ -22,20 +22,21 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 let isSupabaseOnline = false;
-let hasCheckedSupabase = false;
+let lastSupabaseCheckTime = 0;
 
-async function checkSupabaseAvailable(): Promise<boolean> {
+async function checkSupabaseAvailable(force = false): Promise<boolean> {
   if (!isSupabaseConfigured || !supabaseUrl) {
     isSupabaseOnline = false;
-    hasCheckedSupabase = true;
     return false;
   }
-  if (hasCheckedSupabase) {
+  const now = Date.now();
+  // Revalidar a cada 30 segundos ou quando forçado
+  if (!force && isSupabaseOnline && (now - lastSupabaseCheckTime < 30000)) {
     return isSupabaseOnline;
   }
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2500);
+    const timer = setTimeout(() => controller.abort(), 4000);
     const cleanUrl = supabaseUrl.replace(/\/+$/, "");
     const res = await fetch(`${cleanUrl}/auth/v1/health`, {
       method: "GET",
@@ -43,17 +44,19 @@ async function checkSupabaseAvailable(): Promise<boolean> {
       signal: controller.signal
     }).catch(() => null);
     clearTimeout(timer);
+    lastSupabaseCheckTime = Date.now();
     if (res && (res.status === 200 || res.status === 401 || res.status === 403 || res.status === 404)) {
       isSupabaseOnline = true;
+      console.log(`[SUPABASE] Conexão com ${cleanUrl} estabelecida com sucesso!`);
     } else {
       isSupabaseOnline = false;
-      console.warn(`[SUPABASE] Endpoint ${supabaseUrl} inacessível (DNS/offline). Usando armazenamento local de alto desempenho.`);
+      console.warn(`[SUPABASE] Endpoint ${supabaseUrl} inacessível (DNS/offline). Usando armazenamento local de contingência.`);
     }
   } catch {
     isSupabaseOnline = false;
-    console.warn(`[SUPABASE] Falha ao resolver ${supabaseUrl}. Usando armazenamento local de alto desempenho.`);
+    lastSupabaseCheckTime = Date.now();
+    console.warn(`[SUPABASE] Falha ao resolver ${supabaseUrl}. Usando armazenamento local de contingência.`);
   }
-  hasCheckedSupabase = true;
   return isSupabaseOnline;
 }
 
@@ -503,13 +506,14 @@ async function startServer() {
   // --- API ROUTES ---
 
   // Retorna status de configuração do backend
-  app.get("/api/config-status", (req, res) => {
+  app.get("/api/config-status", async (req, res) => {
+    const isOnline = await checkSupabaseAvailable(true);
     res.json({
-      isConfigured: isSupabaseConfigured && isSupabaseOnline,
+      isConfigured: isSupabaseConfigured && isOnline,
       supabaseUrlExists: Boolean(supabaseUrl),
       supabaseAnonKeyExists: Boolean(supabaseAnonKey),
       supabaseServiceRoleKeyExists: Boolean(supabaseServiceRoleKey),
-      isOnline: isSupabaseOnline
+      isOnline: isOnline
     });
   });
 
