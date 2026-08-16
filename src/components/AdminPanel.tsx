@@ -210,7 +210,10 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
       if (!response.ok) {
         throw new Error(data.error || "Erro ao obter usuários.");
       }
-      setUsers(data);
+      const validUsers = Array.isArray(data) 
+        ? data.filter((u: UserProfile) => u && u.email && typeof u.email === "string" && u.email.trim().length > 0 && u.email.includes("@"))
+        : [];
+      setUsers(validUsers);
     } catch (err: any) {
       setUsersError(err.message || "Erro para listar usuários.");
     } finally {

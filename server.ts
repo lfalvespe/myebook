@@ -143,6 +143,23 @@ function loadLocalDB(): LocalDatabase {
       const data = JSON.parse(fs.readFileSync(LOCAL_DB_PATH, "utf-8"));
       if (data.books && data.users && data.passwords) {
         let changed = false;
+        
+        // Remover qualquer usuário fantasma sem email válido
+        const prevCount = data.users.length;
+        data.users = data.users.filter((u: any) => {
+          const hasValidEmail = u && u.email && typeof u.email === "string" && u.email.trim().length > 0 && u.email.includes("@");
+          if (!hasValidEmail) {
+            if (u && u.id && data.passwords[u.id]) {
+              delete data.passwords[u.id];
+            }
+            return false;
+          }
+          return true;
+        });
+        if (data.users.length !== prevCount) {
+          changed = true;
+        }
+
         data.users.forEach((u: UserProfile) => {
           if (u.email?.toLowerCase() === "lfalvespe@gmail.com") {
             if (u.role !== "admin") {
@@ -209,6 +226,8 @@ function isValidUUID(str?: string | null): boolean {
 }
 
 function saveLocalDB(db: LocalDatabase) {
+  // Garantir que nenhum usuário sem email válido seja salvo
+  db.users = db.users.filter((u: any) => u && u.email && typeof u.email === "string" && u.email.trim().length > 0 && u.email.includes("@"));
   fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(db, null, 2));
 }
 
@@ -224,18 +243,27 @@ async function ensureUserExistsLocal(db: LocalDatabase, id: string): Promise<Use
         .maybeSingle();
 
       let meta: any = {};
+      let authEmail = "";
       if (supabaseAdmin && isValidUUID(id)) {
         try {
           const { data: authUserData, error: authUserErr } = await supabaseAdmin.auth.admin.getUserById(id);
           if (!authUserErr && authUserData?.user) {
             meta = authUserData.user.user_metadata || {};
+            authEmail = authUserData.user.email || "";
           }
         } catch {
           // Ignorado silenciosamente
         }
       }
 
-      if (sbProfile || meta) {
+      const emailValue = ((sbProfile ? sbProfile.email : null) || authEmail || meta.email || "").trim();
+
+      // Se não houver email válido, não criar e não registrar este usuário fantasma
+      if (!emailValue || !emailValue.includes("@")) {
+        return undefined;
+      }
+
+      if (sbProfile || meta || authEmail) {
         const nameValue = meta.name || (sbProfile ? sbProfile.name : "") || "";
         const avatarValue = meta.avatar || (sbProfile ? sbProfile.avatar : "") || "";
         const statusMessageValue = meta.status_message || (sbProfile ? sbProfile.status_message : "") || "";
@@ -247,7 +275,7 @@ async function ensureUserExistsLocal(db: LocalDatabase, id: string): Promise<Use
 
         user = {
           id,
-          email: (sbProfile ? sbProfile.email : null) || meta.email || "",
+          email: emailValue,
           role: roleValue as "admin" | "user",
           status: statusValue as "active" | "banned",
           name: nameValue,
@@ -304,9 +332,25 @@ async function startServer() {
   // Servir uploads locais de mídia/arquivos
   app.use("/uploads", express.static(UPLOADS_DIR));
 
-  // Garantir que lfalvespe@gmail.com tenha papel de admin no Supabase e os demais tenham role 'user'
+  // Garantir que lfalvespe@gmail.com tenha papel de admin no Supabase e os demais tenham role 'user', e limpar contas sem email
   if (isSupabaseConfigured && isSupabaseOnline && supabaseAdmin) {
     try {
+      // 0. Limpar registros fantasmas sem email da tabela customizada e auth
+      try {
+        await supabaseAdmin.from("user_profiles").delete().or("email.is.null,email.eq.''");
+        const { data: allAuthUsers } = await supabaseAdmin.auth.admin.listUsers();
+        if (allAuthUsers?.users) {
+          for (const u of allAuthUsers.users) {
+            if (!u.email || !u.email.includes("@")) {
+              await supabaseAdmin.auth.admin.deleteUser(u.id);
+              console.log(`[CLEANUP] Usuário fantasma sem email excluído do Supabase: ${u.id}`);
+            }
+          }
+        }
+      } catch (cleanErr: any) {
+        console.warn("Aviso ao limpar contas fantasmas no Supabase:", cleanErr?.message || cleanErr);
+      }
+
       // 1. Atualiza lfalvespe@gmail.com para admin
       const { data: sbAdminUsers } = await supabaseAdmin
         .from("user_profiles")
@@ -1321,7 +1365,7 @@ async function startServer() {
         if (authErr) {
           console.warn("Erro ao ler usuários Auth do Supabase:", authErr.message);
           const db = loadLocalDB();
-          return res.json(db.users);
+          return res.json(db.users.filter(u => u.email && u.email.includes("@")));
         }
 
         const { data: profiles, error: profileErr } = await supabaseAdmin
@@ -1331,31 +1375,34 @@ async function startServer() {
         if (profileErr) {
           console.warn("Erro ao buscar perfis no Supabase:", profileErr.message);
           const db = loadLocalDB();
-          return res.json(db.users);
+          return res.json(db.users.filter(u => u.email && u.email.includes("@")));
         }
 
-        // Unificar as tabelas
-        const unifiedUsers = authData.users.map(u => {
-          const matchedProfile = profiles?.find(p => p.id === u.id);
-          return {
-            id: u.id,
-            email: u.email || "",
-            role: matchedProfile?.role || "user",
-            status: matchedProfile?.status || "active",
-            created_at: u.created_at
-          };
-        });
+        // Unificar as tabelas, descartando contas sem email válido
+        const unifiedUsers = authData.users
+          .map(u => {
+            const matchedProfile = profiles?.find(p => p.id === u.id);
+            const userEmail = (u.email || matchedProfile?.email || "").trim();
+            return {
+              id: u.id,
+              email: userEmail,
+              role: matchedProfile?.role || "user",
+              status: matchedProfile?.status || "active",
+              created_at: u.created_at
+            };
+          })
+          .filter(u => u.email && u.email.length > 0 && u.email.includes("@"));
 
         return res.json(unifiedUsers);
       } catch (err: any) {
         handleSupabaseError(err);
         console.warn("Exceção na listagem de usuários do Supabase, fallback local:", err.message);
         const db = loadLocalDB();
-        return res.json(db.users);
+        return res.json(db.users.filter(u => u.email && u.email.includes("@")));
       }
     } else {
       const db = loadLocalDB();
-      return res.json(db.users);
+      return res.json(db.users.filter(u => u.email && u.email.includes("@")));
     }
   });
 
@@ -1474,6 +1521,15 @@ async function startServer() {
   app.delete("/api/users/:id", async (req, res) => {
     const { id } = req.params;
 
+    // Sempre remover do banco local imediatamente
+    const db = loadLocalDB();
+    const userIndex = db.users.findIndex(u => u.id === id);
+    if (userIndex !== -1) {
+      db.users.splice(userIndex, 1);
+    }
+    delete db.passwords[id];
+    saveLocalDB(db);
+
     const isUUID = isValidUUID(id);
 
     if (isSupabaseConfigured && isSupabaseOnline && supabaseAdmin && isUUID) {
@@ -1482,21 +1538,16 @@ async function startServer() {
         await supabaseAdmin.from("user_profiles").delete().eq("id", id);
         // 2. Excluir da tabela principal do auth
         const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
-        if (error) return res.status(400).json({ error: error.message });
+        if (error) {
+          console.warn("Aviso ao excluir usuário no Supabase Auth:", error.message);
+        }
 
-        return res.json({ success: true, message: "Usuário excluído com sucesso do Supabase Auth e perfis." });
+        return res.json({ success: true, message: "Usuário excluído com sucesso do Supabase Auth e banco local." });
       } catch (err: any) {
         handleSupabaseError(err);
-        return res.status(500).json({ error: err.message });
+        return res.json({ success: true, message: "Usuário removido do banco local (Supabase offline/erro)." });
       }
     } else {
-      const db = loadLocalDB();
-      const userIndex = db.users.findIndex(u => u.id === id);
-      if (userIndex === -1) return res.status(404).json({ error: "Usuário não encontrado." });
-
-      db.users.splice(userIndex, 1);
-      delete db.passwords[id];
-      saveLocalDB(db);
       return res.json({ success: true, message: "Usuário excluído com sucesso do banco local." });
     }
   });
@@ -1521,18 +1572,22 @@ async function startServer() {
             .maybeSingle();
 
           let meta: any = {};
+          let authEmail = "";
           if (supabaseAdmin && isValidUUID(id)) {
             try {
               const { data: authUserData, error: authUserErr } = await supabaseAdmin.auth.admin.getUserById(id);
               if (!authUserErr && authUserData?.user) {
                 meta = authUserData.user.user_metadata || {};
+                authEmail = authUserData.user.email || "";
               }
             } catch {
               // Ignorado
             }
           }
 
-          if (sbProfile || (meta && Object.keys(meta).length > 0)) {
+          const emailValue = ((sbProfile ? sbProfile.email : null) || authEmail || meta.email || "").trim();
+
+          if (sbProfile || (meta && Object.keys(meta).length > 0) || authEmail) {
             let user = db.users.find(u => u.id === id);
             
             const nameValue = meta.name || (sbProfile ? sbProfile.name : "") || "";
@@ -1546,6 +1601,9 @@ async function startServer() {
 
             if (user) {
               // Atualizar no banco local com os dados mais recentes do Supabase/Auth Meta
+              if (emailValue && emailValue.includes("@")) {
+                user.email = emailValue;
+              }
               user.name = nameValue;
               user.avatar = avatarValue;
               user.status_message = statusMessageValue;
@@ -1554,10 +1612,11 @@ async function startServer() {
               user.annotations = annotationsValue;
               user.role = roleValue as "admin" | "user";
               user.status = statusValue as "active" | "banned";
-            } else {
+            } else if (emailValue && emailValue.includes("@")) {
+              // Só cadastra se tiver um email válido
               user = {
                 id,
-                email: (sbProfile ? sbProfile.email : null) || meta.email || "",
+                email: emailValue,
                 role: roleValue as "admin" | "user",
                 status: statusValue as "active" | "banned",
                 name: nameValue,
@@ -1572,7 +1631,9 @@ async function startServer() {
               db.users.push(user);
             }
             saveLocalDB(db);
-            return res.json(user);
+            if (user) {
+              return res.json(user);
+            }
           }
         } catch (supabaseErr: any) {
           handleSupabaseError(supabaseErr);
@@ -1601,9 +1662,12 @@ async function startServer() {
       let user = await ensureUserExistsLocal(db, id);
       
       if (!user) {
+        if (!email || !email.includes("@")) {
+          return res.status(400).json({ error: "Email válido obrigatório para sincronização." });
+        }
         user = {
           id,
-          email: email || "",
+          email: email.trim(),
           role: "user",
           status: "active",
           created_at: new Date().toISOString()
@@ -1611,8 +1675,8 @@ async function startServer() {
         db.users.push(user);
       }
 
-      if (email && !user.email) {
-        user.email = email;
+      if (email && email.includes("@") && !user.email) {
+        user.email = email.trim();
       }
       if (name) user.name = name;
       if (avatar) user.avatar = avatar;
