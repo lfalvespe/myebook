@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Upload, Users, BookOpen, Key, Trash2, Ban, ShieldCheck, CheckCircle2, UserCheck, RefreshCw, X, ShieldAlert, Layers, Pencil, ArrowLeft } from "lucide-react";
+import { Upload, Users, BookOpen, Key, Trash2, Ban, ShieldCheck, CheckCircle2, UserCheck, RefreshCw, X, ShieldAlert, Layers, Pencil, ArrowLeft, Search } from "lucide-react";
 import { Book, UserProfile } from "../types";
 
 interface AdminPanelProps {
@@ -11,6 +11,9 @@ interface AdminPanelProps {
 
 export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHome }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<"register" | "manage-books" | "users">("register");
+  
+  // Book filter state in admin panel
+  const [bookSearchQuery, setBookSearchQuery] = useState("");
   
   // Book register states
   const [title, setTitle] = useState("");
@@ -702,11 +705,49 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
       )}
 
       {/* View 2: Gerenciar Livros (Editar/Excluir) */}
-      {activeTab === "manage-books" && (
+      {activeTab === "manage-books" && (() => {
+        const filteredBooks = books.filter((book) => {
+          if (!bookSearchQuery.trim()) return true;
+          const q = bookSearchQuery.toLowerCase().trim();
+          const matchTitle = book.title?.toLowerCase().includes(q);
+          const matchAuthor = book.author?.toLowerCase().includes(q);
+          return matchTitle || matchAuthor;
+        });
+
+        return (
         <div className="space-y-6" id="manage-books-group">
-          <span className="text-xs font-mono text-slate-400 uppercase tracking-widest flex items-center gap-2">
-            Livros Disponíveis no Catálogo
-          </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1" id="admin-books-filter-bar">
+            <span className="text-xs font-mono text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              Livros Disponíveis no Catálogo
+              <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 py-0.5 px-2 rounded-full font-sans font-bold">
+                {filteredBooks.length} {filteredBooks.length === 1 ? "livro" : "livros"}
+                {bookSearchQuery.trim() && ` de ${books.length}`}
+              </span>
+            </span>
+
+            {/* Input de Busca por Título ou Autor */}
+            <div className="relative w-full sm:w-72" id="admin-book-search-container">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={bookSearchQuery}
+                onChange={(e) => setBookSearchQuery(e.target.value)}
+                placeholder="Filtrar por título ou autor..."
+                className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-3xs"
+                id="admin-book-search-input"
+              />
+              {bookSearchQuery && (
+                <button
+                  onClick={() => setBookSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer transition-colors"
+                  title="Limpar filtro de busca"
+                  id="admin-book-search-clear"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
 
           {editingBook ? (
             /* Formulário de Edição do Livro */
@@ -875,10 +916,10 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
             </form>
           ) : (
             /* Lista de Livros Disponíveis com botões de Editar/Excluir */
-            <div className="overflow-x-auto border border-slate-100 rounded-2xl bg-white">
+            <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900 shadow-3xs">
               <table className="w-full table-auto text-left text-sm" id="admin-books-table">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase">
+                  <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 text-xs font-semibold text-slate-500 uppercase">
                     <th className="py-3 px-4">Capa</th>
                     <th className="py-3 px-4">Livro</th>
                     <th className="py-3 px-4">Autor</th>
@@ -886,32 +927,32 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                     <th className="py-3 px-4 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {books.map((book) => (
-                    <tr key={book.id} className="hover:bg-slate-50/50">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                  {filteredBooks.map((book) => (
+                    <tr key={book.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="py-3 px-4">
                         <img 
                           src={book.cover_url} 
                           alt="" 
-                          className="w-10 h-14 object-cover rounded shadow-xs bg-slate-100" 
+                          className="w-10 h-14 object-cover rounded shadow-xs bg-slate-100 dark:bg-slate-800" 
                           referrerPolicy="no-referrer"
                         />
                       </td>
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-800 text-sm">{book.title}</div>
+                        <div className="font-semibold text-slate-800 dark:text-slate-100 text-sm">{book.title}</div>
                         <p className="text-xs text-slate-400 line-clamp-1 max-w-sm font-sans italic" title={book.synopsis}>
                           {book.synopsis ? `"${book.synopsis}"` : "Sem sinopse informada."}
                         </p>
                       </td>
-                      <td className="py-3 px-4 text-xs font-medium text-slate-600">{book.author}</td>
-                      <td className="py-3 px-4 text-xs text-slate-500">
-                        <div className="font-semibold">{book.genre}</div>
+                      <td className="py-3 px-4 text-xs font-medium text-slate-600 dark:text-slate-300">{book.author}</td>
+                      <td className="py-3 px-4 text-xs text-slate-500 dark:text-slate-400">
+                        <div className="font-semibold text-slate-700 dark:text-slate-300">{book.genre}</div>
                         <div>Ano: {book.year}</div>
                       </td>
                       <td className="py-3 px-4 text-right space-x-2 h-12 whitespace-nowrap">
                         {deletingBookId === book.id ? (
-                          <div className="inline-flex items-center gap-1.5 bg-rose-50 border border-rose-200 p-1.5 rounded-lg text-xs leading-none">
-                            <span className="font-semibold text-rose-700 select-none">Excluir?</span>
+                          <div className="inline-flex items-center gap-1.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 p-1.5 rounded-lg text-xs leading-none">
+                            <span className="font-semibold text-rose-700 dark:text-rose-300 select-none">Excluir?</span>
                             <button
                               onClick={() => confirmDeleteBook(book.id, book.title)}
                               className="bg-rose-600 hover:bg-rose-700 text-white font-semibold py-1 px-2.5 rounded-md transition-colors cursor-pointer"
@@ -920,7 +961,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                             </button>
                             <button
                               onClick={() => setDeletingBookId(null)}
-                              className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1 px-2 rounded-md transition-colors cursor-pointer"
+                              className="bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold py-1 px-2 rounded-md transition-colors cursor-pointer"
                             >
                               Não
                             </button>
@@ -930,7 +971,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                             {/* Botão de Editar */}
                             <button
                               onClick={() => startEditingBook(book)}
-                              className="p-1 px-2.5 rounded-md border border-slate-200 hover:bg-blue-50 hover:border-blue-200 text-slate-600 hover:text-blue-700 transition-colors inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                              className="p-1 px-2.5 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:border-blue-200 text-slate-600 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-300 transition-colors inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
                               title="Editar informações do livro"
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -940,7 +981,7 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                             {/* Botão de Excluir */}
                             <button
                               onClick={() => startDeleteBook(book.id)}
-                              className="p-1 px-2.5 rounded-md border border-rose-100 bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                              className="p-1 px-2.5 rounded-md border border-rose-100 dark:border-rose-900/40 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 dark:text-rose-300 transition-colors inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
                               title="Excluir livro do catálogo"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -956,12 +997,26 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
                       <td colSpan={5} className="text-center py-12 text-slate-400">Nenhum livro cadastrado no sistema.</td>
                     </tr>
                   )}
+                  {books.length > 0 && filteredBooks.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="text-center py-12 text-slate-400">
+                        <p className="text-sm">Nenhum livro encontrado com o filtro "{bookSearchQuery}".</p>
+                        <button
+                          onClick={() => setBookSearchQuery("")}
+                          className="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                        >
+                          Limpar busca
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* View 3: Gerenciar Usuários */}
       {activeTab === "users" && (
