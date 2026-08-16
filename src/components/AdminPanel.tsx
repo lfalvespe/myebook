@@ -116,7 +116,10 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
 
       const response = await fetch("/api/books", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${currentUser?.id || ""}`
+        },
         body: JSON.stringify(payload)
       });
 
@@ -205,7 +208,11 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
     setUsersLoading(true);
     setUsersError("");
     try {
-      const response = await fetch("/api/users");
+      const response = await fetch("/api/users", {
+        headers: {
+          "Authorization": `Bearer ${currentUser?.id || ""}`
+        }
+      });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || "Erro ao obter usuários.");
@@ -233,7 +240,10 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
     try {
       const response = await fetch(`/api/users/${userId}/toggle-status`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${currentUser?.id || ""}`
+        },
         body: JSON.stringify({ status: nextStatus })
       });
       if (!response.ok) {
@@ -255,7 +265,10 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
     try {
       const response = await fetch(`/api/users/${userId}/change-role`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${currentUser?.id || ""}`
+        },
         body: JSON.stringify({ role: nextRole })
       });
       if (!response.ok) {
@@ -279,7 +292,10 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
   const confirmDeleteUser = async (userId: string) => {
     try {
       const response = await fetch(`/api/users/${userId}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${currentUser?.id || ""}`
+        }
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -313,7 +329,10 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
     try {
       const response = await fetch(`/api/users/${modUserId}/change-password`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${currentUser?.id || ""}`
+        },
         body: JSON.stringify({ password: newPassword })
       });
 
@@ -394,7 +413,10 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
 
       const response = await fetch(`/api/books/${editingBook.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${currentUser?.id || ""}`
+        },
         body: JSON.stringify(payload)
       });
 
@@ -424,7 +446,10 @@ export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHo
   const confirmDeleteBook = async (bookId: string, titleName: string) => {
     try {
       const response = await fetch(`/api/books/${bookId}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${currentUser?.id || ""}`
+        }
       });
       const data = await response.json();
       if (!response.ok) {

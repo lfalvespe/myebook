@@ -298,6 +298,60 @@ async function ensureUserExistsLocal(db: LocalDatabase, id: string): Promise<Use
   return user;
 }
 
+// Helper para validar privilégios de administrador de forma centralizada e segura
+async function isRequestAdmin(req: express.Request): Promise<boolean> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return false;
+  }
+  const callerId = authHeader.split(" ")[1]?.trim();
+  if (!callerId) return false;
+
+  // 1. Verificar no Supabase
+  if (isSupabaseConfigured && isSupabaseOnline && supabase) {
+    try {
+      const clientToUse = supabaseAdmin || supabase;
+      const { data: profile } = await clientToUse
+        .from("user_profiles")
+        .select("role, email, status")
+        .eq("id", callerId)
+        .maybeSingle();
+
+      if (profile) {
+        if (profile.status === "banned") return false;
+        if (profile.role === "admin" || profile.email?.toLowerCase() === "lfalvespe@gmail.com") {
+          return true;
+        }
+      }
+
+      if (supabaseAdmin && isValidUUID(callerId)) {
+        const { data: authUserData } = await supabaseAdmin.auth.admin.getUserById(callerId);
+        if (authUserData?.user) {
+          const userEmail = authUserData.user.email?.toLowerCase();
+          const userRole = authUserData.user.user_metadata?.role;
+          if (userEmail === "lfalvespe@gmail.com" || userRole === "admin") {
+            return true;
+          }
+        }
+      }
+    } catch (err: any) {
+      handleSupabaseError(err);
+    }
+  }
+
+  // 2. Verificar no Banco Local
+  const db = loadLocalDB();
+  const user = db.users.find(u => u.id === callerId);
+  if (user) {
+    if (user.status === "banned") return false;
+    if (user.role === "admin" || user.email?.toLowerCase() === "lfalvespe@gmail.com") {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 async function saveUserMetadataToSupabase(id: string, user: any) {
   if (isSupabaseConfigured && isSupabaseOnline && supabaseAdmin && isValidUUID(id)) {
     try {
@@ -573,50 +627,8 @@ async function startServer() {
   app.post("/api/auth/register", async (req, res) => {
     const { email, password, role } = req.body; // se o primeiro admin se cadastrar, permitimos especificar role
 
-    let isCallerAdmin = false;
-    const authHeader = req.headers.authorization;
-    console.log("[REGISTER DEBUG] Received request to register:", email, "with requested role:", role);
-    console.log("[REGISTER DEBUG] Authorization Header:", authHeader);
-
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const callerId = authHeader.split(" ")[1];
-      console.log("[REGISTER DEBUG] Extracted caller ID:", callerId);
-      if (callerId) {
-        if (isSupabaseConfigured && isSupabaseOnline && supabase) {
-          try {
-            const clientToUse = supabaseAdmin || supabase;
-            console.log("[REGISTER DEBUG] Checking admin profile in Supabase using client:", supabaseAdmin ? "Admin Client" : "Anon Client");
-            const { data: profile, error: errProfile } = await clientToUse
-              .from("user_profiles")
-              .select("role")
-              .eq("id", callerId)
-              .maybeSingle();
-            
-            if (errProfile) {
-              console.error("[REGISTER DEBUG] Error querying caller profile:", errProfile);
-            } else {
-              console.log("[REGISTER DEBUG] Caller profile queried successfully:", profile);
-            }
-
-            if (profile && profile.role === "admin") {
-              isCallerAdmin = true;
-            }
-          } catch (err: any) {
-            handleSupabaseError(err);
-            console.warn("Erro ao verificar admin no Supabase:", err);
-          }
-        } else {
-          const db = loadLocalDB();
-          const profile = db.users.find(u => u.id === callerId);
-          console.log("[REGISTER DEBUG] Checking local fallback profile:", profile);
-          if (profile && profile.role === "admin") {
-            isCallerAdmin = true;
-          }
-        }
-      }
-    }
-
-    console.log("[REGISTER DEBUG] Evaluated isCallerAdmin:", isCallerAdmin);
+    const isCallerAdmin = await isRequestAdmin(req);
+    console.log("[REGISTER DEBUG] Received request to register:", email, "with requested role:", role, "isCallerAdmin:", isCallerAdmin);
 
     // Apenas admins podem criar novas contas com a role 'admin'. Se for self-service, forçamos 'user'.
     const desiredRole = (role === "admin" && isCallerAdmin) ? "admin" : "user";
@@ -915,8 +927,13 @@ async function startServer() {
     }
   });
 
-  // Cadastrar Novo Livro + Upload via Base64
+  // Cadastrar Novo Livro + Upload via Base64 (Apenas Admin)
   app.post("/api/books", async (req, res) => {
+    const isAdmin = await isRequestAdmin(req);
+    if (!isAdmin) {
+      return res.status(403).json({ error: "Acesso não autorizado: privilégios de administrador necessários." });
+    }
+
     const { title, author, year, genre, synopsis, cover_base64, cover_filename, epub_base64, epub_filename } = req.body;
 
     if (!title || !author || !year || !genre || !synopsis) {
@@ -1106,8 +1123,13 @@ async function startServer() {
     }
   });
 
-  // Editar Livro existente
+  // Editar Livro existente (Apenas Admin)
   app.put("/api/books/:id", async (req, res) => {
+    const isAdmin = await isRequestAdmin(req);
+    if (!isAdmin) {
+      return res.status(403).json({ error: "Acesso não autorizado: privilégios de administrador necessários." });
+    }
+
     const { id } = req.params;
     const { title, author, year, genre, synopsis, cover_url, file_url, cover_base64, cover_filename, epub_base64, epub_filename } = req.body;
 
@@ -1298,8 +1320,13 @@ async function startServer() {
     }
   });
 
-  // Excluir Livro existente
+  // Excluir Livro existente (Apenas Admin)
   app.delete("/api/books/:id", async (req, res) => {
+    const isAdmin = await isRequestAdmin(req);
+    if (!isAdmin) {
+      return res.status(403).json({ error: "Acesso não autorizado: privilégios de administrador necessários." });
+    }
+
     const { id } = req.params;
 
     if (isSupabaseConfigured && isSupabaseOnline && supabase) {
@@ -1357,7 +1384,11 @@ async function startServer() {
 
   // Listar todas as contas (Apenas para Admin)
   app.get("/api/users", async (req, res) => {
-    // Nota: Em cenários reais, validamos permissões via cabeçalho Bearer do usuário
+    const isAdmin = await isRequestAdmin(req);
+    if (!isAdmin) {
+      return res.status(403).json({ error: "Acesso não autorizado: privilégios de administrador necessários para listar contas." });
+    }
+
     if (isSupabaseConfigured && isSupabaseOnline && supabaseAdmin) {
       try {
         // Obter do Supabase Auth e perfis customizados
@@ -1408,6 +1439,11 @@ async function startServer() {
 
   // Alterar senha de outro usuário (Apenas Admin)
   app.post("/api/users/:id/change-password", async (req, res) => {
+    const isAdmin = await isRequestAdmin(req);
+    if (!isAdmin) {
+      return res.status(403).json({ error: "Acesso não autorizado: privilégios de administrador necessários." });
+    }
+
     const { id } = req.params;
     const { password } = req.body;
 
@@ -1441,6 +1477,11 @@ async function startServer() {
 
   // Banir ou desbanir usuário (Apenas Admin)
   app.post("/api/users/:id/toggle-status", async (req, res) => {
+    const isAdmin = await isRequestAdmin(req);
+    if (!isAdmin) {
+      return res.status(403).json({ error: "Acesso não autorizado: privilégios de administrador necessários." });
+    }
+
     const { id } = req.params;
     const { status } = req.body; // 'active' ou 'banned'
 
@@ -1480,6 +1521,11 @@ async function startServer() {
 
   // Trocar cargo (role) do usuário (Apenas Admin)
   app.post("/api/users/:id/change-role", async (req, res) => {
+    const isAdmin = await isRequestAdmin(req);
+    if (!isAdmin) {
+      return res.status(403).json({ error: "Acesso não autorizado: privilégios de administrador necessários." });
+    }
+
     const { id } = req.params;
     const { role } = req.body; // 'admin' ou 'user'
 
@@ -1519,6 +1565,11 @@ async function startServer() {
 
   // Excluir usuário (Apenas Admin)
   app.delete("/api/users/:id", async (req, res) => {
+    const isAdmin = await isRequestAdmin(req);
+    if (!isAdmin) {
+      return res.status(403).json({ error: "Acesso não autorizado: privilégios de administrador necessários." });
+    }
+
     const { id } = req.params;
 
     // Sempre remover do banco local imediatamente
