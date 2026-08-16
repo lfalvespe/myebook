@@ -21,6 +21,48 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
+let isSupabaseOnline = false;
+let hasCheckedSupabase = false;
+
+async function checkSupabaseAvailable(): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabaseUrl) {
+    isSupabaseOnline = false;
+    hasCheckedSupabase = true;
+    return false;
+  }
+  if (hasCheckedSupabase) {
+    return isSupabaseOnline;
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    const cleanUrl = supabaseUrl.replace(/\/+$/, "");
+    const res = await fetch(`${cleanUrl}/auth/v1/health`, {
+      method: "GET",
+      headers: { apikey: supabaseAnonKey || "" },
+      signal: controller.signal
+    }).catch(() => null);
+    clearTimeout(timer);
+    if (res && (res.status === 200 || res.status === 401 || res.status === 403 || res.status === 404)) {
+      isSupabaseOnline = true;
+    } else {
+      isSupabaseOnline = false;
+      console.warn(`[SUPABASE] Endpoint ${supabaseUrl} inacessível (DNS/offline). Usando armazenamento local de alto desempenho.`);
+    }
+  } catch {
+    isSupabaseOnline = false;
+    console.warn(`[SUPABASE] Falha ao resolver ${supabaseUrl}. Usando armazenamento local de alto desempenho.`);
+  }
+  hasCheckedSupabase = true;
+  return isSupabaseOnline;
+}
+
+function handleSupabaseError(err: any) {
+  if (err?.message?.includes("ENOTFOUND") || err?.message?.includes("fetch failed") || err?.cause?.code === "ENOTFOUND") {
+    isSupabaseOnline = false;
+  }
+}
+
 // Inicializar clientes Supabase se configurado
 const supabase = isSupabaseConfigured ? createClient(supabaseUrl, supabaseAnonKey) : null;
 const supabaseAdmin = (isSupabaseConfigured && supabaseServiceRoleKey) 
@@ -100,6 +142,23 @@ function loadLocalDB(): LocalDatabase {
     try {
       const data = JSON.parse(fs.readFileSync(LOCAL_DB_PATH, "utf-8"));
       if (data.books && data.users && data.passwords) {
+        let changed = false;
+        data.users.forEach((u: UserProfile) => {
+          if (u.email?.toLowerCase() === "lfalvespe@gmail.com") {
+            if (u.role !== "admin") {
+              u.role = "admin";
+              changed = true;
+            }
+          } else {
+            if (u.role !== "user") {
+              u.role = "user";
+              changed = true;
+            }
+          }
+        });
+        if (changed) {
+          fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(data, null, 2));
+        }
         return data;
       }
     } catch (e) {
@@ -114,7 +173,7 @@ function loadLocalDB(): LocalDatabase {
       {
         id: "admin-id",
         email: "admin@livraria.com",
-        role: "admin",
+        role: "user",
         status: "active",
         created_at: new Date().toISOString()
       },
@@ -144,13 +203,18 @@ function loadLocalDB(): LocalDatabase {
   return initialDB;
 }
 
+function isValidUUID(str?: string | null): boolean {
+  if (!str || typeof str !== "string") return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
 function saveLocalDB(db: LocalDatabase) {
   fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(db, null, 2));
 }
 
 async function ensureUserExistsLocal(db: LocalDatabase, id: string): Promise<UserProfile | undefined> {
   let user = db.users.find(u => u.id === id);
-  if (!user && isSupabaseConfigured && supabase) {
+  if (!user && isSupabaseConfigured && isSupabaseOnline && supabase && isValidUUID(id)) {
     try {
       const clientToUse = supabaseAdmin || supabase;
       const { data: sbProfile } = await clientToUse
@@ -160,14 +224,14 @@ async function ensureUserExistsLocal(db: LocalDatabase, id: string): Promise<Use
         .maybeSingle();
 
       let meta: any = {};
-      if (supabaseAdmin) {
+      if (supabaseAdmin && isValidUUID(id)) {
         try {
           const { data: authUserData, error: authUserErr } = await supabaseAdmin.auth.admin.getUserById(id);
           if (!authUserErr && authUserData?.user) {
             meta = authUserData.user.user_metadata || {};
           }
-        } catch (authErr) {
-          console.warn("Erro ao buscar dados adicionais do Auth:", authErr);
+        } catch {
+          // Ignorado silenciosamente
         }
       }
 
@@ -198,15 +262,16 @@ async function ensureUserExistsLocal(db: LocalDatabase, id: string): Promise<Use
         db.users.push(user);
         saveLocalDB(db);
       }
-    } catch (err) {
-      console.warn("Erro ao buscar usuário no Supabase para sincronização:", err);
+    } catch (err: any) {
+      handleSupabaseError(err);
+      // Ignorado silenciosamente para contingência local
     }
   }
   return user;
 }
 
 async function saveUserMetadataToSupabase(id: string, user: any) {
-  if (isSupabaseConfigured && supabaseAdmin) {
+  if (isSupabaseConfigured && isSupabaseOnline && supabaseAdmin && isValidUUID(id)) {
     try {
       await supabaseAdmin.auth.admin.updateUserById(id, {
         user_metadata: {
@@ -219,14 +284,18 @@ async function saveUserMetadataToSupabase(id: string, user: any) {
         }
       });
       console.log(`[SUPABASE BACKUP] Metadados salvos persistente para o usuário ${id}`);
-    } catch (err) {
-      console.warn(`Erro ao salvar metadados do usuário ${id} no Supabase:`, err);
+    } catch (err: any) {
+      handleSupabaseError(err);
+      console.warn(`Aviso ao salvar metadados do usuário ${id} no Supabase:`, err.message || err);
     }
   }
 }
 
 async function startServer() {
   const app = express();
+
+  // Testar se o endpoint do Supabase está acessível e online
+  await checkSupabaseAvailable();
 
   // Middleware para suportar uploads grandes de capase ebooks em base64
   app.use(express.json({ limit: "50mb" }));
@@ -235,15 +304,60 @@ async function startServer() {
   // Servir uploads locais de mídia/arquivos
   app.use("/uploads", express.static(UPLOADS_DIR));
 
+  // Garantir que lfalvespe@gmail.com tenha papel de admin no Supabase e os demais tenham role 'user'
+  if (isSupabaseConfigured && isSupabaseOnline && supabaseAdmin) {
+    try {
+      // 1. Atualiza lfalvespe@gmail.com para admin
+      const { data: sbAdminUsers } = await supabaseAdmin
+        .from("user_profiles")
+        .select("id, email, role")
+        .eq("email", "lfalvespe@gmail.com");
+
+      if (sbAdminUsers && sbAdminUsers.length > 0) {
+        for (const u of sbAdminUsers) {
+          if (u.role !== "admin") {
+            await supabaseAdmin.from("user_profiles").update({ role: "admin" }).eq("id", u.id);
+            if (isValidUUID(u.id)) {
+              await supabaseAdmin.auth.admin.updateUserById(u.id, { user_metadata: { role: "admin" } });
+            }
+            console.log(`[INIT] Papel de ${u.email} atualizado para admin no Supabase.`);
+          }
+        }
+      }
+
+      // 2. Atualiza todos os demais usuários para role 'user'
+      const { data: otherUsers } = await supabaseAdmin
+        .from("user_profiles")
+        .select("id, email, role")
+        .neq("email", "lfalvespe@gmail.com");
+
+      if (otherUsers && otherUsers.length > 0) {
+        for (const u of otherUsers) {
+          if (u.role !== "user") {
+            await supabaseAdmin.from("user_profiles").update({ role: "user" }).eq("id", u.id);
+            if (isValidUUID(u.id)) {
+              await supabaseAdmin.auth.admin.updateUserById(u.id, { user_metadata: { role: "user" } });
+            }
+            console.log(`[INIT] Papel de ${u.email} redefinido para user no Supabase.`);
+          }
+        }
+      }
+    } catch (e: any) {
+      handleSupabaseError(e);
+      console.warn("Aviso ao conectar/sincronizar no Supabase (usando contingência local):", e?.message || e);
+    }
+  }
+
   // --- API ROUTES ---
 
   // Retorna status de configuração do backend
   app.get("/api/config-status", (req, res) => {
     res.json({
-      isConfigured: isSupabaseConfigured,
+      isConfigured: isSupabaseConfigured && isSupabaseOnline,
       supabaseUrlExists: Boolean(supabaseUrl),
       supabaseAnonKeyExists: Boolean(supabaseAnonKey),
-      supabaseServiceRoleKeyExists: Boolean(supabaseServiceRoleKey)
+      supabaseServiceRoleKeyExists: Boolean(supabaseServiceRoleKey),
+      isOnline: isSupabaseOnline
     });
   });
 
@@ -278,7 +392,7 @@ async function startServer() {
       };
     };
 
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && isSupabaseOnline && supabase) {
       try {
         // Tentar autenticar com o Supabase Auth Client
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -334,10 +448,15 @@ async function startServer() {
         const readBooksValue = meta.read_books || (profile ? profile.read_books : []) || [];
         const annotationsValue = meta.annotations || (profile ? profile.annotations : {}) || {};
 
+        let profileRole = (profile?.role as "admin" | "user") || meta.role || "user";
+        if ((authUser.email || email).toLowerCase() === "lfalvespe@gmail.com") {
+          profileRole = "admin";
+        }
+
         let profileData: UserProfile = {
           id: authUser.id,
           email: authUser.email || email,
-          role: (profile?.role as "admin" | "user") || meta.role || "user",
+          role: profileRole,
           status: (profile?.status as "active" | "banned") || "active",
           name: nameValue,
           avatar: avatarValue,
@@ -388,6 +507,7 @@ async function startServer() {
         });
 
       } catch (err: any) {
+        handleSupabaseError(err);
         console.log(`Supabase login gerou exceção para ${email}. Tentando login local fallback...`);
         const localResult = loginLocal();
         if ("error" in localResult) {
@@ -418,7 +538,7 @@ async function startServer() {
       const callerId = authHeader.split(" ")[1];
       console.log("[REGISTER DEBUG] Extracted caller ID:", callerId);
       if (callerId) {
-        if (isSupabaseConfigured && supabase) {
+        if (isSupabaseConfigured && isSupabaseOnline && supabase) {
           try {
             const clientToUse = supabaseAdmin || supabase;
             console.log("[REGISTER DEBUG] Checking admin profile in Supabase using client:", supabaseAdmin ? "Admin Client" : "Anon Client");
@@ -437,7 +557,8 @@ async function startServer() {
             if (profile && profile.role === "admin") {
               isCallerAdmin = true;
             }
-          } catch (err) {
+          } catch (err: any) {
+            handleSupabaseError(err);
             console.warn("Erro ao verificar admin no Supabase:", err);
           }
         } else {
@@ -465,7 +586,7 @@ async function startServer() {
       return res.status(400).json({ error: "Preencha o campo de email e senha." });
     }
 
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && isSupabaseOnline && supabase) {
       try {
         let authUser;
         let authId = "";
@@ -605,6 +726,7 @@ async function startServer() {
         });
 
       } catch (err: any) {
+        handleSupabaseError(err);
         return res.status(500).json({ error: err.message });
       }
     } else {
@@ -646,9 +768,9 @@ async function startServer() {
       return res.status(400).json({ error: "A nova senha deve ter pelo menos 4 caracteres." });
     }
 
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+    const isUUID = isValidUUID(userId);
 
-    if (isSupabaseConfigured && supabaseAdmin && isUUID) {
+    if (isSupabaseConfigured && isSupabaseOnline && supabaseAdmin && isUUID) {
       try {
         const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
           password: newPassword
@@ -682,6 +804,7 @@ async function startServer() {
           user: updatedProfile || { id: userId, email: "", role: "admin", status: "active", must_change_password: false }
         });
       } catch (err: any) {
+        handleSupabaseError(err);
         return res.status(500).json({ error: err.message });
       }
     } else {
@@ -709,7 +832,7 @@ async function startServer() {
   app.get("/api/books", async (req, res) => {
     const db = loadLocalDB();
 
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && isSupabaseOnline && supabase) {
       try {
         const { data: supabaseBooks, error } = await supabase
           .from("books")
@@ -739,6 +862,7 @@ async function startServer() {
 
         return res.json(db.books);
       } catch (err: any) {
+        handleSupabaseError(err);
         console.warn("Exceção técnica ao buscar livros do Supabase. Usando banco local de contingência:", err);
         return res.json(db.books);
       }
@@ -765,7 +889,7 @@ async function startServer() {
         const coverBuffer = Buffer.from(cover_base64.split(",")[1] || cover_base64, "base64");
         const uniqueCoverName = `cover-${Date.now()}-${cover_filename.replace(/\s+/g, "_")}`;
 
-        if (isSupabaseConfigured && supabase) {
+        if (isSupabaseConfigured && isSupabaseOnline && supabase) {
           try {
             const clientToUse = supabaseAdmin || supabase;
             // Upload para o bucket customizado 'books' no Supabase Storage
@@ -790,6 +914,7 @@ async function startServer() {
               finalCoverUrl = publicUrl;
             }
           } catch (storageErr: any) {
+            handleSupabaseError(storageErr);
             console.warn("Exceção técnica no upload de capa Supabase, fallback local:", storageErr.message);
             warnings.push(`Capa salva localmente (exceção no storage: ${storageErr.message})`);
             const filePath = path.join(UPLOADS_DIR, uniqueCoverName);
@@ -812,7 +937,7 @@ async function startServer() {
         const epubBuffer = Buffer.from(epub_base64.split(",")[1] || epub_base64, "base64");
         const uniqueEpubName = `ebook-${Date.now()}-${epub_filename.replace(/\s+/g, "_")}`;
 
-        if (isSupabaseConfigured && supabase) {
+        if (isSupabaseConfigured && isSupabaseOnline && supabase) {
           try {
             const clientToUse = supabaseAdmin || supabase;
             // Upload para o bucket 'books' no Supabase Storage
@@ -837,6 +962,7 @@ async function startServer() {
               finalFileUrl = publicUrl;
             }
           } catch (storageErr: any) {
+            handleSupabaseError(storageErr);
             console.warn("Exceção técnica no upload de EPUB Supabase, fallback local:", storageErr.message);
             warnings.push(`EPUB salvo localmente (exceção no storage: ${storageErr.message})`);
             const filePath = path.join(UPLOADS_DIR, uniqueEpubName);
@@ -866,7 +992,7 @@ async function startServer() {
         created_at: new Date().toISOString()
       };
 
-      if (isSupabaseConfigured && supabase) {
+      if (isSupabaseConfigured && isSupabaseOnline && supabase) {
         try {
           const clientToUse = supabaseAdmin || supabase;
           const { data, error } = await clientToUse
@@ -911,6 +1037,7 @@ async function startServer() {
             warning: warnings.length > 0 ? warnings.join(" ; ") : undefined
           });
         } catch (dbErr: any) {
+          handleSupabaseError(dbErr);
           console.warn("Exceção ao inserir no Supabase. Salvando localmente:", dbErr.message);
           warnings.push(`Salvo localmente para contingência por exceção técnica: ${dbErr.message}`);
           const db = loadLocalDB();
@@ -954,7 +1081,7 @@ async function startServer() {
         const coverBuffer = Buffer.from(cover_base64.split(",")[1] || cover_base64, "base64");
         const uniqueCoverName = `cover-${Date.now()}-${cover_filename.replace(/\s+/g, "_")}`;
 
-        if (isSupabaseConfigured && supabase) {
+        if (isSupabaseConfigured && isSupabaseOnline && supabase) {
           try {
             const clientToUse = supabaseAdmin || supabase;
             const { error: uploadErr } = await clientToUse.storage
@@ -977,6 +1104,7 @@ async function startServer() {
               finalCoverUrl = publicUrl;
             }
           } catch (storageErr: any) {
+            handleSupabaseError(storageErr);
             console.warn("Exceção técnica no upload de capa Supabase, fallback local:", storageErr.message);
             warnings.push(`Capa salva localmente (exceção no storage: ${storageErr.message})`);
             const filePath = path.join(UPLOADS_DIR, uniqueCoverName);
@@ -995,7 +1123,7 @@ async function startServer() {
         const epubBuffer = Buffer.from(epub_base64.split(",")[1] || epub_base64, "base64");
         const uniqueEpubName = `ebook-${Date.now()}-${epub_filename.replace(/\s+/g, "_")}`;
 
-        if (isSupabaseConfigured && supabase) {
+        if (isSupabaseConfigured && isSupabaseOnline && supabase) {
           try {
             const clientToUse = supabaseAdmin || supabase;
             const { error: uploadErr } = await clientToUse.storage
@@ -1018,6 +1146,7 @@ async function startServer() {
               finalFileUrl = publicUrl;
             }
           } catch (storageErr: any) {
+            handleSupabaseError(storageErr);
             console.warn("Exceção técnica no upload de EPUB Supabase, fallback local:", storageErr.message);
             warnings.push(`EPUB salvo localmente (exceção no storage: ${storageErr.message})`);
             const filePath = path.join(UPLOADS_DIR, uniqueEpubName);
@@ -1042,7 +1171,7 @@ async function startServer() {
         file_url: finalFileUrl
       };
 
-      if (isSupabaseConfigured && supabase) {
+      if (isSupabaseConfigured && isSupabaseOnline && supabase) {
         try {
           const clientToUse = supabaseAdmin || supabase;
           const { data, error } = await clientToUse
@@ -1089,6 +1218,7 @@ async function startServer() {
             warning: warnings.length > 0 ? warnings.join(" ; ") : undefined
           });
         } catch (dbErr: any) {
+          handleSupabaseError(dbErr);
           console.warn("Exceção ao atualizar no Supabase. Salvando localmente:", dbErr.message);
           warnings.push(`Salvo localmente para contingência por exceção técnica: ${dbErr.message}`);
           const db = loadLocalDB();
@@ -1128,7 +1258,7 @@ async function startServer() {
   app.delete("/api/books/:id", async (req, res) => {
     const { id } = req.params;
 
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && isSupabaseOnline && supabase) {
       try {
         const clientToUse = supabaseAdmin || supabase;
         const { error } = await clientToUse
@@ -1157,6 +1287,7 @@ async function startServer() {
 
         return res.json({ success: true });
       } catch (dbErr: any) {
+        handleSupabaseError(dbErr);
         console.warn("Exceção ao deletar no Supabase. Removendo localmente:", dbErr.message);
         const db = loadLocalDB();
         const idx = db.books.findIndex(b => String(b.id) === String(id));
@@ -1183,7 +1314,7 @@ async function startServer() {
   // Listar todas as contas (Apenas para Admin)
   app.get("/api/users", async (req, res) => {
     // Nota: Em cenários reais, validamos permissões via cabeçalho Bearer do usuário
-    if (isSupabaseConfigured && supabaseAdmin) {
+    if (isSupabaseConfigured && isSupabaseOnline && supabaseAdmin) {
       try {
         // Obter do Supabase Auth e perfis customizados
         const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.listUsers();
@@ -1217,6 +1348,7 @@ async function startServer() {
 
         return res.json(unifiedUsers);
       } catch (err: any) {
+        handleSupabaseError(err);
         console.warn("Exceção na listagem de usuários do Supabase, fallback local:", err.message);
         const db = loadLocalDB();
         return res.json(db.users);
@@ -1236,9 +1368,9 @@ async function startServer() {
       return res.status(400).json({ error: "A senha deve ter pelo menos 4 caracteres." });
     }
 
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const isUUID = isValidUUID(id);
 
-    if (isSupabaseConfigured && supabaseAdmin && isUUID) {
+    if (isSupabaseConfigured && isSupabaseOnline && supabaseAdmin && isUUID) {
       try {
         const { error } = await supabaseAdmin.auth.admin.updateUserById(id, {
           password
@@ -1246,6 +1378,7 @@ async function startServer() {
         if (error) return res.status(400).json({ error: error.message });
         return res.json({ success: true, message: "Senha alterada com sucesso!" });
       } catch (err: any) {
+        handleSupabaseError(err);
         return res.status(500).json({ error: err.message });
       }
     } else {
@@ -1268,9 +1401,9 @@ async function startServer() {
       return res.status(400).json({ error: "Status inválido." });
     }
 
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const isUUID = isValidUUID(id);
 
-    if (isSupabaseConfigured && supabase && isUUID) {
+    if (isSupabaseConfigured && isSupabaseOnline && supabase && isUUID) {
       try {
         const clientToUse = supabaseAdmin || supabase;
         const { error } = await clientToUse
@@ -1284,6 +1417,7 @@ async function startServer() {
         }
         return res.json({ success: true, status });
       } catch (err: any) {
+        handleSupabaseError(err);
         return res.status(500).json({ error: err.message });
       }
     } else {
@@ -1306,9 +1440,9 @@ async function startServer() {
       return res.status(400).json({ error: "Cargo inválido." });
     }
 
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const isUUID = isValidUUID(id);
 
-    if (isSupabaseConfigured && supabase && isUUID) {
+    if (isSupabaseConfigured && isSupabaseOnline && supabase && isUUID) {
       try {
         const clientToUse = supabaseAdmin || supabase;
         const { error } = await clientToUse
@@ -1322,6 +1456,7 @@ async function startServer() {
         }
         return res.json({ success: true, role });
       } catch (err: any) {
+        handleSupabaseError(err);
         return res.status(500).json({ error: err.message });
       }
     } else {
@@ -1339,9 +1474,9 @@ async function startServer() {
   app.delete("/api/users/:id", async (req, res) => {
     const { id } = req.params;
 
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const isUUID = isValidUUID(id);
 
-    if (isSupabaseConfigured && supabaseAdmin && isUUID) {
+    if (isSupabaseConfigured && isSupabaseOnline && supabaseAdmin && isUUID) {
       try {
         // 1. Excluir perfil da tabela customizada
         await supabaseAdmin.from("user_profiles").delete().eq("id", id);
@@ -1351,6 +1486,7 @@ async function startServer() {
 
         return res.json({ success: true, message: "Usuário excluído com sucesso do Supabase Auth e perfis." });
       } catch (err: any) {
+        handleSupabaseError(err);
         return res.status(500).json({ error: err.message });
       }
     } else {
@@ -1374,8 +1510,8 @@ async function startServer() {
     try {
       const db = loadLocalDB();
       
-      // Se estiver configurado o Supabase, podemos tentar ler do Supabase para ter certeza de que está atualizado
-      if (isSupabaseConfigured && supabase) {
+      // Se estiver configurado o Supabase e for um ID UUID válido, buscamos no Supabase
+      if (isSupabaseConfigured && isSupabaseOnline && supabase && isValidUUID(id)) {
         const clientToUse = supabaseAdmin || supabase;
         try {
           const { data: sbProfile } = await clientToUse
@@ -1385,18 +1521,18 @@ async function startServer() {
             .maybeSingle();
 
           let meta: any = {};
-          if (supabaseAdmin) {
+          if (supabaseAdmin && isValidUUID(id)) {
             try {
               const { data: authUserData, error: authUserErr } = await supabaseAdmin.auth.admin.getUserById(id);
               if (!authUserErr && authUserData?.user) {
                 meta = authUserData.user.user_metadata || {};
               }
-            } catch (authErr) {
-              console.warn("Erro ao ler metadata no GET profile:", authErr);
+            } catch {
+              // Ignorado
             }
           }
 
-          if (sbProfile || meta) {
+          if (sbProfile || (meta && Object.keys(meta).length > 0)) {
             let user = db.users.find(u => u.id === id);
             
             const nameValue = meta.name || (sbProfile ? sbProfile.name : "") || "";
@@ -1438,8 +1574,9 @@ async function startServer() {
             saveLocalDB(db);
             return res.json(user);
           }
-        } catch (supabaseErr) {
-          console.warn("Supabase profile fetch warning:", supabaseErr);
+        } catch (supabaseErr: any) {
+          handleSupabaseError(supabaseErr);
+          console.warn("Supabase profile fetch fallback to local:", supabaseErr?.message || supabaseErr);
         }
       }
 
@@ -1496,7 +1633,7 @@ async function startServer() {
       await saveUserMetadataToSupabase(id, user);
 
       // Também persistimos na tabela customizada se configurada (ignora erro se colunas não existirem)
-      if (isSupabaseConfigured && supabase) {
+      if (isSupabaseConfigured && isSupabaseOnline && supabase && isValidUUID(id)) {
         const clientToUse = supabaseAdmin || supabase;
         try {
           await clientToUse
@@ -1511,6 +1648,7 @@ async function startServer() {
             })
             .eq("id", id);
         } catch (supabaseErr) {
+          handleSupabaseError(supabaseErr);
           console.warn("Supabase backup sync-restore warning (ignorado):", supabaseErr);
         }
       }
@@ -1532,7 +1670,7 @@ async function startServer() {
       let avatarUrl = avatar;
       if (avatar && avatar.startsWith("data:image/")) {
         // Se estiver usando o Supabase, salvamos o base64 diretamente para ter persistência completa a cada deploy no Render
-        if (isSupabaseConfigured && supabase) {
+        if (isSupabaseConfigured && isSupabaseOnline && supabase) {
           avatarUrl = avatar;
         } else {
           const matches = avatar.match(/^data:image\/([A-Za-z+]+);base64,(.+)$/);
@@ -1564,7 +1702,7 @@ async function startServer() {
       await saveUserMetadataToSupabase(id, user);
 
       // Também tentamos salvar na tabela de perfil customizada (para retrocompatibilidade)
-      if (isSupabaseConfigured && supabase) {
+      if (isSupabaseConfigured && isSupabaseOnline && supabase && isValidUUID(id)) {
         const clientToUse = supabaseAdmin || supabase;
         try {
           await clientToUse
@@ -1576,6 +1714,7 @@ async function startServer() {
             })
             .eq("id", id);
         } catch (supabaseErr) {
+          handleSupabaseError(supabaseErr);
           console.warn("Supabase profile update warning (ignorado):", supabaseErr);
         }
       }
@@ -1620,7 +1759,7 @@ async function startServer() {
       await saveUserMetadataToSupabase(id, user);
 
       // Registrar na tabela de perfil (para retrocompatibilidade, ignora erros se colunas faltarem)
-      if (isSupabaseConfigured && supabase) {
+      if (isSupabaseConfigured && isSupabaseOnline && supabase && isValidUUID(id)) {
         const clientToUse = supabaseAdmin || supabase;
         try {
           await clientToUse
@@ -1628,6 +1767,7 @@ async function startServer() {
             .update({ favorites: user.favorites })
             .eq("id", id);
         } catch (err) {
+          handleSupabaseError(err);
           console.warn("Supabase favorites update warning (ignorado):", err);
         }
       }
@@ -1671,7 +1811,7 @@ async function startServer() {
       await saveUserMetadataToSupabase(id, user);
 
       // Registrar na tabela de perfil (para retrocompatibilidade, ignora erros se colunas faltarem)
-      if (isSupabaseConfigured && supabase) {
+      if (isSupabaseConfigured && isSupabaseOnline && supabase && isValidUUID(id)) {
         const clientToUse = supabaseAdmin || supabase;
         try {
           await clientToUse
@@ -1679,6 +1819,7 @@ async function startServer() {
             .update({ read_books: user.read_books })
             .eq("id", id);
         } catch (err) {
+          handleSupabaseError(err);
           console.warn("Supabase read_books update warning (ignorado):", err);
         }
       }
@@ -1716,7 +1857,7 @@ async function startServer() {
       await saveUserMetadataToSupabase(id, user);
 
       // Registrar na tabela de perfil (para retrocompatibilidade, ignora erros se colunas faltarem)
-      if (isSupabaseConfigured && supabase) {
+      if (isSupabaseConfigured && isSupabaseOnline && supabase && isValidUUID(id)) {
         const clientToUse = supabaseAdmin || supabase;
         try {
           await clientToUse
@@ -1724,6 +1865,7 @@ async function startServer() {
             .update({ annotations: user.annotations })
             .eq("id", id);
         } catch (err) {
+          handleSupabaseError(err);
           console.warn("Supabase annotations update warning (ignorado):", err);
         }
       }

@@ -12,7 +12,24 @@ import LogoutConfirmModal from "./components/LogoutConfirmModal";
 export default function App() {
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem("livraria_user");
-    return saved ? JSON.parse(saved) : null;
+    if (!saved) return null;
+    try {
+      const parsed: UserProfile = JSON.parse(saved);
+      if (parsed.email?.toLowerCase() === "lfalvespe@gmail.com") {
+        if (parsed.role !== "admin") {
+          parsed.role = "admin";
+          localStorage.setItem("livraria_user", JSON.stringify(parsed));
+        }
+      } else {
+        if (parsed.role !== "user") {
+          parsed.role = "user";
+          localStorage.setItem("livraria_user", JSON.stringify(parsed));
+        }
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
   });
 
   const [theme, setTheme] = useState<"light" | "dark">(() => {
