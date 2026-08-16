@@ -185,7 +185,7 @@ function loadLocalDB(): LocalDatabase {
 
   // Seed inicial
   const initialDB: LocalDatabase = {
-    books: DEFAULT_BOOKS,
+    books: [],
     users: [
       {
         id: "admin-id",
@@ -443,6 +443,60 @@ async function startServer() {
     } catch (e: any) {
       handleSupabaseError(e);
       console.warn("Aviso ao conectar/sincronizar no Supabase (usando contingência local):", e?.message || e);
+    }
+  }
+
+  // 3. Inicialização e sincronização de livros:
+  // Os 4 livros padrão só devem ser inseridos se não houver NENHUM livro cadastrado no sistema
+  if (isSupabaseConfigured && isSupabaseOnline && supabase) {
+    try {
+      const { data: supabaseBooks, error } = await supabase
+        .from("books")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      const db = loadLocalDB();
+
+      if (!error && supabaseBooks) {
+        if (supabaseBooks.length > 0) {
+          // Já existem livros no Supabase. O banco local passa a espelhar exatamente o Supabase
+          db.books = supabaseBooks;
+          saveLocalDB(db);
+          console.log(`[INIT] ${supabaseBooks.length} livro(s) encontrados no Supabase. Banco local sincronizado.`);
+        } else {
+          // Supabase tem 0 livros. Se o banco local também tiver 0 livros, insere os 4 livros padrão como seed inicial
+          if (!db.books || db.books.length === 0) {
+            console.log("[INIT] Nenhum livro cadastrado no sistema (Supabase e local vazios). Inserindo os 4 livros padrão...");
+            const clientToUse = supabaseAdmin || supabase;
+            try {
+              const { data: inserted } = await clientToUse
+                .from("books")
+                .insert(DEFAULT_BOOKS)
+                .select();
+              if (inserted && inserted.length > 0) {
+                db.books = inserted;
+              } else {
+                db.books = [...DEFAULT_BOOKS];
+              }
+            } catch {
+              db.books = [...DEFAULT_BOOKS];
+            }
+            saveLocalDB(db);
+          } else {
+            console.log(`[INIT] Supabase com 0 livros, mantendo os ${db.books.length} livro(s) existentes do banco local.`);
+          }
+        }
+      }
+    } catch (bookErr: any) {
+      handleSupabaseError(bookErr);
+      console.warn("Aviso ao verificar livros no Supabase na inicialização:", bookErr?.message || bookErr);
+    }
+  } else {
+    const db = loadLocalDB();
+    if (!db.books || db.books.length === 0) {
+      console.log("[INIT] Nenhum livro cadastrado no banco local. Inserindo os 4 livros padrão iniciais...");
+      db.books = [...DEFAULT_BOOKS];
+      saveLocalDB(db);
     }
   }
 
@@ -897,32 +951,55 @@ async function startServer() {
 
         if (error) {
           console.warn("Erro ao ler livros do Supabase. Usando banco local de contingência:", error);
+          if (!db.books || db.books.length === 0) {
+            db.books = [...DEFAULT_BOOKS];
+            saveLocalDB(db);
+          }
           return res.json(db.books);
         }
 
-        // Sincronizar livros do Supabase no local_db para garantir persistência após reboots do container
-        let localDbChanged = false;
-        if (supabaseBooks) {
-          for (const sbBook of supabaseBooks) {
-            const idx = db.books.findIndex(b => String(b.id) === String(sbBook.id));
-            if (idx === -1) {
-              db.books.push(sbBook);
-              localDbChanged = true;
-            }
-          }
-        }
-
-        if (localDbChanged) {
+        if (supabaseBooks && supabaseBooks.length > 0) {
+          // Supabase tem livros: é a fonte da verdade
+          db.books = supabaseBooks;
           saveLocalDB(db);
+          return res.json(supabaseBooks);
+        } else {
+          // Supabase tem 0 livros.
+          // Se o banco local também tiver 0 livros, insere os 4 livros padrão como seed inicial
+          if (!db.books || db.books.length === 0) {
+            console.log("[GET /api/books] Nenhum livro cadastrado. Inserindo os 4 livros padrão...");
+            const clientToUse = supabaseAdmin || supabase;
+            try {
+              const { data: inserted } = await clientToUse
+                .from("books")
+                .insert(DEFAULT_BOOKS)
+                .select();
+              if (inserted && inserted.length > 0) {
+                db.books = inserted;
+                saveLocalDB(db);
+                return res.json(inserted);
+              }
+            } catch {}
+            db.books = [...DEFAULT_BOOKS];
+            saveLocalDB(db);
+            return res.json(db.books);
+          }
+          return res.json(db.books);
         }
-
-        return res.json(db.books);
       } catch (err: any) {
         handleSupabaseError(err);
         console.warn("Exceção técnica ao buscar livros do Supabase. Usando banco local de contingência:", err);
+        if (!db.books || db.books.length === 0) {
+          db.books = [...DEFAULT_BOOKS];
+          saveLocalDB(db);
+        }
         return res.json(db.books);
       }
     } else {
+      if (!db.books || db.books.length === 0) {
+        db.books = [...DEFAULT_BOOKS];
+        saveLocalDB(db);
+      }
       return res.json(db.books);
     }
   });
