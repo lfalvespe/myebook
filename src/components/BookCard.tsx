@@ -12,6 +12,7 @@ interface BookCardProps {
   onToggleRead?: (bookId: string) => void;
   onDownloadRequest: () => void;
   onUnauthorizedDownload?: () => void;
+  onOpenSynopsis?: (book: BookType) => void;
   key?: string;
 }
 
@@ -24,9 +25,18 @@ export default function BookCard({
   onToggleFavorite, 
   onToggleRead, 
   onDownloadRequest, 
-  onUnauthorizedDownload 
+  onUnauthorizedDownload,
+  onOpenSynopsis
 }: BookCardProps) {
   const [showSynopsisModal, setShowSynopsisModal] = useState(false);
+
+  const handleOpenSynopsis = () => {
+    if (onOpenSynopsis) {
+      onOpenSynopsis(book);
+    } else {
+      setShowSynopsisModal(true);
+    }
+  };
 
   const handleDownload = () => {
     if (!isLoggedIn) {
@@ -53,7 +63,7 @@ export default function BookCard({
     >
       {/* Cover Image container */}
       <div 
-        onClick={() => setShowSynopsisModal(true)}
+        onClick={handleOpenSynopsis}
         className="relative aspect-[15/17] w-full overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-slate-150/70 dark:from-slate-950 dark:via-slate-900/90 dark:to-slate-950 cursor-pointer flex items-center justify-center p-3.5 border-b border-slate-100 dark:border-slate-800/50"
         title="Clique para ver a sinopse"
       >
@@ -117,7 +127,7 @@ export default function BookCard({
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>
           <h4 
-            onClick={() => setShowSynopsisModal(true)}
+            onClick={handleOpenSynopsis}
             className="font-sans font-semibold text-slate-800 dark:text-slate-100 text-sm leading-snug hover:text-blue-700 dark:hover:text-blue-400 transition-colors line-clamp-2 cursor-pointer" 
             title="Clique para ver a sinopse"
           >
@@ -140,7 +150,7 @@ export default function BookCard({
             <>
               {/* Desktop Synopsis Preview Box */}
               <div 
-                onClick={() => setShowSynopsisModal(true)}
+                onClick={handleOpenSynopsis}
                 className="hidden sm:block mt-3 text-xs text-slate-600 dark:text-slate-300 bg-slate-50/80 dark:bg-slate-950/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 leading-relaxed max-h-24 overflow-y-auto cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-850/60 transition-colors" 
                 title="Clique para ver a sinopse completa"
               >
@@ -150,7 +160,7 @@ export default function BookCard({
 
               {/* Mobile Synopsis Button */}
               <button 
-                onClick={() => setShowSynopsisModal(true)}
+                onClick={handleOpenSynopsis}
                 className="sm:hidden w-full mt-3 text-xs font-semibold py-2 px-3 bg-slate-50 dark:bg-slate-950/40 hover:bg-slate-105 dark:hover:bg-slate-850 text-slate-705 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-1.5 cursor-pointer transition-all"
               >
                 <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />

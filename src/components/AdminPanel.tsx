@@ -7,10 +7,25 @@ interface AdminPanelProps {
   books: Book[];
   currentUser?: UserProfile | null;
   onBackToHome?: () => void;
+  activeTab?: "register" | "manage-books" | "users";
+  onTabChange?: (tab: "register" | "manage-books" | "users") => void;
 }
 
-export default function AdminPanel({ onBookAdded, books, currentUser, onBackToHome }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"register" | "manage-books" | "users">("register");
+export default function AdminPanel({ 
+  onBookAdded, 
+  books, 
+  currentUser, 
+  onBackToHome,
+  activeTab: controlledTab,
+  onTabChange
+}: AdminPanelProps) {
+  const [internalTab, setInternalTab] = useState<"register" | "manage-books" | "users">("register");
+  const activeTab = controlledTab || internalTab;
+
+  const setActiveTab = (tab: "register" | "manage-books" | "users") => {
+    setInternalTab(tab);
+    onTabChange?.(tab);
+  };
   
   // Book filter state in admin panel
   const [bookSearchQuery, setBookSearchQuery] = useState("");

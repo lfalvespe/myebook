@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Search, Filter, BookOpen, Layers, User as UserIcon, BookDown, AlertCircle, Database, HelpCircle, LayoutGrid, Layers3, FlameKindling, ChevronLeft, ChevronRight } from "lucide-react";
 import { Book, UserProfile, SupabaseConfigStatus } from "./types";
 import Header from "./components/Header";
@@ -8,6 +8,7 @@ import AdminPanel from "./components/AdminPanel";
 import DashboardDocs from "./components/DashboardDocs";
 import ProfilePanel from "./components/ProfilePanel";
 import LogoutConfirmModal from "./components/LogoutConfirmModal";
+import SynopsisModal from "./components/SynopsisModal";
 
 export default function App() {
   const [user, setUser] = useState<UserProfile | null>(() => {
@@ -56,7 +57,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewGroupBy, setViewGroupBy] = useState<"none" | "genre" | "author">("none");
-  const [activeTabGenre, setActiveTabGenre] = useState<string>("Todos");
 
   // Pagination & limits for books
   const [galleryPage, setGalleryPage] = useState(1);
@@ -69,14 +69,147 @@ export default function App() {
     setGalleryPage(1);
   }, [searchQuery, viewGroupBy, itemsPerPage]);
   
-  // UI states
+  // UI states & routing state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [adminTab, setAdminTab] = useState<"register" | "manage-books" | "users">("register");
   const [showProfile, setShowProfile] = useState(false);
+  const [profileTab, setProfileTab] = useState<"favorites" | "read">("favorites");
   const [showDocs, setShowDocs] = useState(false);
+  const [selectedSynopsisBookId, setSelectedSynopsisBookId] = useState<string | null>(null);
   const [alertDownload, setAlertDownload] = useState(false);
   const [alertRoleDownload, setAlertRoleDownload] = useState(false);
+
+  // History / Navigation Routing Logic
+  const syncStateFromHash = useCallback((hashString: string) => {
+    const clean = hashString.replace(/^#\/?/, "").trim();
+    const parts = clean.split("/").filter(Boolean);
+    const root = parts[0]?.toLowerCase() || "";
+    const sub = parts[1]?.toLowerCase() || "";
+
+    if (root === "admin") {
+      setShowAdminPanel(true);
+      setShowProfile(false);
+      setShowDocs(false);
+      setIsAuthModalOpen(false);
+      setIsLogoutConfirmOpen(false);
+      setSelectedSynopsisBookId(null);
+      if (sub === "livros" || sub === "gerenciar") {
+        setAdminTab("manage-books");
+      } else if (sub === "usuarios" || sub === "contas") {
+        setAdminTab("users");
+      } else {
+        setAdminTab("register");
+      }
+    } else if (root === "perfil") {
+      setShowProfile(true);
+      setShowAdminPanel(false);
+      setShowDocs(false);
+      setIsAuthModalOpen(false);
+      setIsLogoutConfirmOpen(false);
+      setSelectedSynopsisBookId(null);
+      if (sub === "lidos") {
+        setProfileTab("read");
+      } else {
+        setProfileTab("favorites");
+      }
+    } else if (root === "docs" || root === "documentacao") {
+      setShowDocs(true);
+      setShowAdminPanel(false);
+      setShowProfile(false);
+      setIsAuthModalOpen(false);
+      setIsLogoutConfirmOpen(false);
+      setSelectedSynopsisBookId(null);
+    } else if (root === "login" || root === "entrar" || root === "cadastrar") {
+      setIsAuthModalOpen(true);
+      setIsLogoutConfirmOpen(false);
+      setShowAdminPanel(false);
+      setShowProfile(false);
+      setShowDocs(false);
+      setSelectedSynopsisBookId(null);
+    } else if (root === "sair" || root === "logout") {
+      setIsLogoutConfirmOpen(true);
+      setIsAuthModalOpen(false);
+      setSelectedSynopsisBookId(null);
+    } else if (root === "livro" || root === "sinopse") {
+      const bookId = parts[1] || null;
+      setSelectedSynopsisBookId(bookId);
+      setIsAuthModalOpen(false);
+      setIsLogoutConfirmOpen(false);
+    } else if (root === "generos") {
+      setViewGroupBy("genre");
+      setShowAdminPanel(false);
+      setShowProfile(false);
+      setShowDocs(false);
+      setIsAuthModalOpen(false);
+      setIsLogoutConfirmOpen(false);
+      setSelectedSynopsisBookId(null);
+    } else if (root === "autores") {
+      setViewGroupBy("author");
+      setShowAdminPanel(false);
+      setShowProfile(false);
+      setShowDocs(false);
+      setIsAuthModalOpen(false);
+      setIsLogoutConfirmOpen(false);
+      setSelectedSynopsisBookId(null);
+    } else {
+      // Home / Catalog (default)
+      setShowAdminPanel(false);
+      setShowProfile(false);
+      setShowDocs(false);
+      setIsAuthModalOpen(false);
+      setIsLogoutConfirmOpen(false);
+      setSelectedSynopsisBookId(null);
+      setViewGroupBy("none");
+    }
+  }, []);
+
+  // Programmatic navigation helper that creates browser history entries
+  const navigate = useCallback((targetPath: string, options?: { replace?: boolean }) => {
+    let cleanHash = targetPath.startsWith("#") ? targetPath : `#${targetPath.startsWith("/") ? targetPath : `/${targetPath}`}`;
+    if (cleanHash === "#" || cleanHash === "") cleanHash = "#/";
+
+    if (window.location.hash !== cleanHash) {
+      if (options?.replace) {
+        window.history.replaceState({ route: cleanHash }, "", cleanHash);
+      } else {
+        window.history.pushState({ route: cleanHash }, "", cleanHash);
+      }
+    }
+    syncStateFromHash(cleanHash);
+  }, [syncStateFromHash]);
+
+  // Navigate back helper with fallback to home
+  const navigateBack = useCallback(() => {
+    if (window.history.length > 1 && window.location.hash && window.location.hash !== "#/" && window.location.hash !== "#") {
+      window.history.back();
+    } else {
+      navigate("#/", { replace: true });
+    }
+  }, [navigate]);
+
+  // Listen to browser Back/Forward navigation (popstate & hashchange)
+  useEffect(() => {
+    const handleLocationChange = () => {
+      syncStateFromHash(window.location.hash || "#/");
+    };
+
+    // Initialize root history entry on mount
+    if (!window.location.hash) {
+      window.history.replaceState({ route: "#/" }, "", "#/");
+    } else {
+      syncStateFromHash(window.location.hash);
+    }
+
+    window.addEventListener("popstate", handleLocationChange);
+    window.addEventListener("hashchange", handleLocationChange);
+
+    return () => {
+      window.removeEventListener("popstate", handleLocationChange);
+      window.removeEventListener("hashchange", handleLocationChange);
+    };
+  }, [syncStateFromHash]);
 
   // Fetch configuration status
   const checkConfigStatus = async () => {
@@ -248,13 +381,13 @@ export default function App() {
   const handleLoginSuccess = (loggedInUser: UserProfile) => {
     setUser(loggedInUser);
     localStorage.setItem("livraria_user", JSON.stringify(loggedInUser));
+    navigate("#/");
   };
 
   const handleLogout = () => {
     setUser(null);
-    setShowAdminPanel(false);
-    setShowProfile(false);
     localStorage.removeItem("livraria_user");
+    navigate("#/");
   };
 
   const handleToggleFavorite = async (bookId: string) => {
@@ -327,6 +460,9 @@ export default function App() {
     return acc;
   }, {} as Record<string, Book[]>);
 
+  // Find book for synopsis modal if ID is in hash/state
+  const synopsisBook = selectedSynopsisBookId ? books.find(b => b.id === selectedSynopsisBookId) || null : null;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans selection:bg-emerald-100 selection:text-emerald-900" id="app-root">
       
@@ -334,19 +470,23 @@ export default function App() {
       <Header
         user={user}
         configStatus={configStatus}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
-        onLogout={() => setIsLogoutConfirmOpen(true)}
+        onOpenAuth={() => navigate("#/login")}
+        onLogout={() => navigate("#/sair")}
         showAdminPanel={showAdminPanel}
         onToggleAdminPanel={() => {
-          setShowAdminPanel(!showAdminPanel);
-          if (showDocs) setShowDocs(false);
-          if (showProfile) setShowProfile(false);
+          if (showAdminPanel) {
+            navigate("#/");
+          } else {
+            navigate("#/admin/cadastrar");
+          }
         }}
         showProfile={showProfile}
         onToggleProfile={() => {
-          setShowProfile(!showProfile);
-          if (showAdminPanel) setShowAdminPanel(false);
-          if (showDocs) setShowDocs(false);
+          if (showProfile) {
+            navigate("#/");
+          } else {
+            navigate("#/perfil/favoritos");
+          }
         }}
         theme={theme}
         onToggleTheme={toggleTheme}
@@ -361,7 +501,7 @@ export default function App() {
             <button
               onClick={() => {
                 setAlertDownload(false);
-                setIsAuthModalOpen(true);
+                navigate("#/login");
               }}
               className="bg-white text-slate-900 px-3 py-1 rounded-md text-xs font-bold hover:bg-slate-150 cursor-pointer ml-3 shrink-0"
             >
@@ -388,12 +528,36 @@ export default function App() {
         
         {/* Toggleable Admin Panel */}
         {showAdminPanel && user?.role === "admin" && (
-          <AdminPanel onBookAdded={loadBooks} books={books} currentUser={user} onBackToHome={() => setShowAdminPanel(false)} />
+          <AdminPanel 
+            onBookAdded={loadBooks} 
+            books={books} 
+            currentUser={user} 
+            onBackToHome={() => navigate("#/")}
+            activeTab={adminTab}
+            onTabChange={(tab) => {
+              if (tab === "manage-books") navigate("#/admin/livros");
+              else if (tab === "users") navigate("#/admin/usuarios");
+              else navigate("#/admin/cadastrar");
+            }}
+          />
         )}
 
         {/* Toggleable Profile Panel */}
         {showProfile && user && (
-          <ProfilePanel user={user} books={books} onBackToHome={() => setShowProfile(false)} onUpdateUser={(updated) => { setUser(updated); localStorage.setItem("livraria_user", JSON.stringify(updated)); }} />
+          <ProfilePanel 
+            user={user} 
+            books={books} 
+            onBackToHome={() => navigate("#/")} 
+            onUpdateUser={(updated) => { 
+              setUser(updated); 
+              localStorage.setItem("livraria_user", JSON.stringify(updated)); 
+            }}
+            activeTab={profileTab}
+            onTabChange={(tab) => {
+              if (tab === "read") navigate("#/perfil/lidos");
+              else navigate("#/perfil/favoritos");
+            }}
+          />
         )}
 
         {/* Toggleable Documentation / Comparison Panel */}
@@ -455,7 +619,7 @@ export default function App() {
                 
                 <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl w-full sm:w-auto">
                   <button
-                    onClick={() => setViewGroupBy("none")}
+                    onClick={() => navigate("#/")}
                     className={`flex-1 sm:flex-none py-1.5 px-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
                       viewGroupBy === "none" ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                     }`}
@@ -464,7 +628,7 @@ export default function App() {
                     <span>Galeria</span>
                   </button>
                   <button
-                    onClick={() => setViewGroupBy("genre")}
+                    onClick={() => navigate("#/generos")}
                     className={`flex-1 sm:flex-none py-1.5 px-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
                       viewGroupBy === "genre" ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                     }`}
@@ -473,7 +637,7 @@ export default function App() {
                     <span>Por Gênero</span>
                   </button>
                   <button
-                    onClick={() => setViewGroupBy("author")}
+                    onClick={() => navigate("#/autores")}
                     className={`flex-1 sm:flex-none py-1.5 px-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
                       viewGroupBy === "author" ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                     }`}
@@ -521,6 +685,7 @@ export default function App() {
                           onToggleRead={handleToggleRead}
                           onDownloadRequest={() => setAlertDownload(true)}
                           onUnauthorizedDownload={() => setAlertRoleDownload(true)}
+                          onOpenSynopsis={(b) => navigate(`#/livro/${b.id}`)}
                         />
                       ))}
                     </div>
@@ -633,6 +798,7 @@ export default function App() {
                                 onToggleRead={handleToggleRead}
                                 onDownloadRequest={() => setAlertDownload(true)}
                                 onUnauthorizedDownload={() => setAlertRoleDownload(true)}
+                                onOpenSynopsis={(b) => navigate(`#/livro/${b.id}`)}
                               />
                             ))}
                           </div>
@@ -692,6 +858,7 @@ export default function App() {
                                 onToggleRead={handleToggleRead}
                                 onDownloadRequest={() => setAlertDownload(true)}
                                 onUnauthorizedDownload={() => setAlertRoleDownload(true)}
+                                onOpenSynopsis={(b) => navigate(`#/livro/${b.id}`)}
                               />
                             ))}
                           </div>
@@ -721,21 +888,35 @@ export default function App() {
 
       </main>
 
-      {/* Auth Modal Popup */}
+      {/* Book Synopsis Modal (Synced with URL hash #/livro/:id) */}
+      <SynopsisModal
+        book={synopsisBook}
+        isOpen={Boolean(synopsisBook)}
+        onClose={navigateBack}
+        isLoggedIn={Boolean(user)}
+        userRole={user?.role}
+        onDownloadRequest={() => {
+          navigateBack();
+          setAlertDownload(true);
+        }}
+        onUnauthorizedDownload={() => {
+          navigateBack();
+          setAlertRoleDownload(true);
+        }}
+      />
+
+      {/* Auth Modal Popup (Synced with URL hash #/login) */}
       <AuthModal
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        onClose={navigateBack}
         onSuccess={handleLoginSuccess}
       />
 
-      {/* Logout Confirmation Modal */}
+      {/* Logout Confirmation Modal (Synced with URL hash #/sair) */}
       <LogoutConfirmModal
         isOpen={isLogoutConfirmOpen}
-        onClose={() => setIsLogoutConfirmOpen(false)}
-        onConfirm={() => {
-          handleLogout();
-          setIsLogoutConfirmOpen(false);
-        }}
+        onClose={navigateBack}
+        onConfirm={handleLogout}
       />
 
       {/* Simple Footer */}

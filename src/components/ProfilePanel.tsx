@@ -7,9 +7,18 @@ interface ProfilePanelProps {
   books: Book[];
   onBackToHome: () => void;
   onUpdateUser: (updatedUser: UserProfile) => void;
+  activeTab?: "favorites" | "read";
+  onTabChange?: (tab: "favorites" | "read") => void;
 }
 
-export default function ProfilePanel({ user, books, onBackToHome, onUpdateUser }: ProfilePanelProps) {
+export default function ProfilePanel({ 
+  user, 
+  books, 
+  onBackToHome, 
+  onUpdateUser,
+  activeTab: controlledTab,
+  onTabChange
+}: ProfilePanelProps) {
   const [name, setName] = useState(user.name || "");
   const [statusMessage, setStatusMessage] = useState(user.status_message || "");
   const [avatar, setAvatar] = useState(user.avatar || "");
@@ -22,7 +31,13 @@ export default function ProfilePanel({ user, books, onBackToHome, onUpdateUser }
     return user.annotations || {};
   });
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"favorites" | "read">("favorites");
+  const [internalTab, setInternalTab] = useState<"favorites" | "read">("favorites");
+  const activeTab = controlledTab || internalTab;
+
+  const setActiveTab = (tab: "favorites" | "read") => {
+    setInternalTab(tab);
+    onTabChange?.(tab);
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
