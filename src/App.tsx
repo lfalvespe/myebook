@@ -21,11 +21,6 @@ export default function App() {
           parsed.role = "admin";
           localStorage.setItem("livraria_user", JSON.stringify(parsed));
         }
-      } else {
-        if (parsed.role !== "user") {
-          parsed.role = "user";
-          localStorage.setItem("livraria_user", JSON.stringify(parsed));
-        }
       }
       return parsed;
     } catch {

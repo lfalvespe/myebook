@@ -169,11 +169,9 @@ function loadLocalDB(): LocalDatabase {
               u.role = "admin";
               changed = true;
             }
-          } else {
-            if (u.role !== "user") {
-              u.role = "user";
-              changed = true;
-            }
+          } else if (!u.role) {
+            u.role = "user";
+            changed = true;
           }
         });
         if (changed) {
@@ -273,7 +271,9 @@ async function ensureUserExistsLocal(db: LocalDatabase, id: string): Promise<Use
         const favoritesValue = meta.favorites || (sbProfile ? sbProfile.favorites : []) || [];
         const readBooksValue = meta.read_books || (sbProfile ? sbProfile.read_books : []) || [];
         const annotationsValue = meta.annotations || (sbProfile ? sbProfile.annotations : {}) || {};
-        const roleValue = (sbProfile ? sbProfile.role : null) || meta.role || "user";
+        const roleValue = (emailValue.toLowerCase() === "lfalvespe@gmail.com")
+          ? "admin"
+          : ((sbProfile ? sbProfile.role : null) || meta.role || (user ? user.role : null) || "user");
         const statusValue = (sbProfile ? sbProfile.status : null) || "active";
 
         user = {
@@ -360,6 +360,7 @@ async function saveUserMetadataToSupabase(id: string, user: any) {
     try {
       await supabaseAdmin.auth.admin.updateUserById(id, {
         user_metadata: {
+          role: user.role || "user",
           name: user.name || "",
           avatar: user.avatar || "",
           status_message: user.status_message || "",
@@ -389,7 +390,7 @@ async function startServer() {
   // Servir uploads locais de mídia/arquivos
   app.use("/uploads", express.static(UPLOADS_DIR));
 
-  // Garantir que lfalvespe@gmail.com tenha papel de admin no Supabase e os demais tenham role 'user', e limpar contas sem email
+  // Garantir que lfalvespe@gmail.com tenha papel de admin no Supabase e que contas sem role recebam 'user' (sem rebaixar nenhum admin)
   if (isSupabaseConfigured && isSupabaseOnline && supabaseAdmin) {
     try {
       // 0. Limpar registros fantasmas sem email da tabela customizada e auth
@@ -426,21 +427,19 @@ async function startServer() {
         }
       }
 
-      // 2. Atualiza todos os demais usuários para role 'user'
-      const { data: otherUsers } = await supabaseAdmin
+      // 2. Garantir apenas que usuários sem papel definido (role nula ou vazia) recebam 'user' por padrão, sem rebaixar nenhum admin
+      const { data: unassignedUsers } = await supabaseAdmin
         .from("user_profiles")
         .select("id, email, role")
-        .neq("email", "lfalvespe@gmail.com");
+        .is("role", null);
 
-      if (otherUsers && otherUsers.length > 0) {
-        for (const u of otherUsers) {
-          if (u.role !== "user") {
-            await supabaseAdmin.from("user_profiles").update({ role: "user" }).eq("id", u.id);
-            if (isValidUUID(u.id)) {
-              await supabaseAdmin.auth.admin.updateUserById(u.id, { user_metadata: { role: "user" } });
-            }
-            console.log(`[INIT] Papel de ${u.email} redefinido para user no Supabase.`);
+      if (unassignedUsers && unassignedUsers.length > 0) {
+        for (const u of unassignedUsers) {
+          await supabaseAdmin.from("user_profiles").update({ role: "user" }).eq("id", u.id);
+          if (isValidUUID(u.id)) {
+            await supabaseAdmin.auth.admin.updateUserById(u.id, { user_metadata: { role: "user" } });
           }
+          console.log(`[INIT] Papel inicial 'user' atribuído ao usuário sem role: ${u.email}`);
         }
       }
     } catch (e: any) {
@@ -632,7 +631,7 @@ async function startServer() {
           const newProfile = { 
             id: authUser.id, 
             email: authUser.email || email, 
-            role: "user", 
+            role: profileRole, 
             status: "active" 
           };
           try {
@@ -1619,15 +1618,56 @@ async function startServer() {
     if (isSupabaseConfigured && isSupabaseOnline && supabase && isUUID) {
       try {
         const clientToUse = supabaseAdmin || supabase;
-        const { error } = await clientToUse
-          .from("user_profiles")
-          .update({ role })
-          .eq("id", id);
 
-        if (error) {
-          const detail = !supabaseAdmin ? " (Dica: A chave SUPABASE_SERVICE_ROLE_KEY não está ativa nas configurações. O perfil de usuário requer escrita administrativa para atualizar sem passar por restrições de RLS)" : "";
-          return res.status(400).json({ error: `${error.message}${detail}` });
+        // 1. Atualizar ou inserir na tabela user_profiles
+        const { data: existingProf } = await clientToUse
+          .from("user_profiles")
+          .select("id, email")
+          .eq("id", id)
+          .maybeSingle();
+
+        if (existingProf) {
+          const { error } = await clientToUse
+            .from("user_profiles")
+            .update({ role })
+            .eq("id", id);
+
+          if (error) {
+            const detail = !supabaseAdmin ? " (Dica: A chave SUPABASE_SERVICE_ROLE_KEY não está ativa nas configurações. O perfil de usuário requer escrita administrativa para atualizar sem passar por restrições de RLS)" : "";
+            return res.status(400).json({ error: `${error.message}${detail}` });
+          }
+        } else {
+          let userEmail = "";
+          if (supabaseAdmin) {
+            const { data: authUserData } = await supabaseAdmin.auth.admin.getUserById(id);
+            userEmail = authUserData?.user?.email || "";
+          }
+          const { error } = await clientToUse
+            .from("user_profiles")
+            .insert([{ id, email: userEmail, role, status: "active" }]);
+
+          if (error) {
+            return res.status(400).json({ error: error.message });
+          }
         }
+
+        // 2. Atualizar user_metadata no Supabase Auth
+        if (supabaseAdmin) {
+          try {
+            await supabaseAdmin.auth.admin.updateUserById(id, { user_metadata: { role } });
+          } catch (metaErr) {
+            console.warn("Aviso ao atualizar role no user_metadata do Supabase:", metaErr);
+          }
+        }
+
+        // 3. Atualizar no banco local para contingência e consistência imediata
+        const db = loadLocalDB();
+        const localUser = db.users.find(u => u.id === id);
+        if (localUser) {
+          localUser.role = role;
+          saveLocalDB(db);
+        }
+
         return res.json({ success: true, role });
       } catch (err: any) {
         handleSupabaseError(err);
@@ -1728,7 +1768,9 @@ async function startServer() {
             const favoritesValue = meta.favorites || (sbProfile ? sbProfile.favorites : []) || [];
             const readBooksValue = meta.read_books || (sbProfile ? sbProfile.read_books : []) || [];
             const annotationsValue = meta.annotations || (sbProfile ? sbProfile.annotations : {}) || {};
-            const roleValue = (sbProfile ? sbProfile.role : null) || meta.role || "user";
+            const roleValue = (emailValue.toLowerCase() === "lfalvespe@gmail.com")
+              ? "admin"
+              : ((sbProfile ? sbProfile.role : null) || meta.role || (user ? user.role : null) || "user");
             const statusValue = (sbProfile ? sbProfile.status : null) || "active";
 
             if (user) {
